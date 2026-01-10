@@ -1,0 +1,41 @@
+# 编译产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 测试和覆盖率
+coverage.out
+*.test
+
+# 依赖
+vendor/
+go.work
+
+# 编辑器和IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 环境变量和配置
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+logs/
+
+# 临时文件
+tmp/
+temp/
+
+# 操作系统
+.DS_Store
+Thumbs.db
+
+# 项目特定
+steps/

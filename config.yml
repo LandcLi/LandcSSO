@@ -1,0 +1,61 @@
+server:
+  port: 8080
+  host: "0.0.0.0"
+  mode: "debug"
+
+database:
+  driver: "mysql"
+  host: "localhost"
+  port: 3306
+  user: "root"
+  password: "root"
+  dbname: "sso"
+  charset: "utf8mb4"
+  parseTime: true
+  loc: "Local"
+  # 主从复制配置
+  masterSlaveEnabled: false
+  slaveHosts: []
+  slavePorts: []
+  # 连接池配置
+  maxIdleConns: 10
+  maxOpenConns: 100
+  connMaxLifetimeHour: 1
+
+redis:
+  host: "localhost"
+  port: 6379
+  password: ""
+  db: 0
+  poolSize: 10
+  # 集群模式配置
+  clusterEnabled: false
+  clusterAddrs: []
+  # 哨兵模式配置
+  sentinelEnabled: false
+  sentinelMaster: ""
+  sentinelAddrs: []
+
+# 多活部署配置
+multiActive:
+  enabled: false
+  dataCenterID: "dc1"
+  globalLoadBalancing: false
+  # Redis跨数据中心同步配置
+  redisSyncEnabled: false
+  redisSyncTarget: ""
+  # 数据库跨数据中心同步配置
+  dbSyncEnabled: false
+  dbSyncTarget: ""
+
+jwt:
+  secret: "your-secret-key"
+  issuer: "sso-server"
+  accessTokenExpiry: 1800  # 30分钟
+  refreshTokenExpiry: 86400  # 24小时
+
+log:
+  provider: "console"
+  level: "info"
+  format: "text"
+  outputPath: "stdout"
