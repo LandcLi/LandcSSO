@@ -7,10 +7,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"math/rand"
 	"net/smtp"
-	"strings"
+	"os"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/internal/model"
@@ -36,6 +35,9 @@ type AuthService struct {
 
 // NewAuthService 创建认证服务实例
 func NewAuthService(userRepo *repository.UserRepository, tokenRepo *repository.TokenRepository, loginHistoryRepo *repository.LoginHistoryRepository, trustedDeviceRepo *repository.TrustedDeviceRepository, config *config.Config) *AuthService {
+	// Go 1.20+ 不需要手动初始化随机数种子
+	// 系统会自动初始化
+
 	service := &AuthService{
 		userRepo:          userRepo,
 		tokenRepo:         tokenRepo,
@@ -46,14 +48,28 @@ func NewAuthService(userRepo *repository.UserRepository, tokenRepo *repository.T
 
 	// 加载RSA密钥（如果配置了）
 	if config.JWT.PrivateKeyPath != "" && config.JWT.PublicKeyPath != "" {
-		privateKey, err := ioutil.ReadFile(config.JWT.PrivateKeyPath)
-		if err == nil {
-			service.privateKey, _ = jwt.ParseRSAPrivateKeyFromPEM(privateKey)
+		privateKey, err := os.ReadFile(config.JWT.PrivateKeyPath)
+		if err != nil {
+			logger.Errorf(context.Background(), "读取私钥文件失败: %v", err)
+		} else {
+			privateKeyObj, err := jwt.ParseRSAPrivateKeyFromPEM(privateKey)
+			if err != nil {
+				logger.Errorf(context.Background(), "解析私钥失败: %v", err)
+			} else {
+				service.privateKey = privateKeyObj
+			}
 		}
 
-		publicKey, err := ioutil.ReadFile(config.JWT.PublicKeyPath)
-		if err == nil {
-			service.publicKey, _ = jwt.ParseRSAPublicKeyFromPEM(publicKey)
+		publicKey, err := os.ReadFile(config.JWT.PublicKeyPath)
+		if err != nil {
+			logger.Errorf(context.Background(), "读取公钥文件失败: %v", err)
+		} else {
+			publicKeyObj, err := jwt.ParseRSAPublicKeyFromPEM(publicKey)
+			if err != nil {
+				logger.Errorf(context.Background(), "解析公钥失败: %v", err)
+			} else {
+				service.publicKey = publicKeyObj
+			}
 		}
 	}
 
@@ -140,26 +156,28 @@ func (s *AuthService) handleTrustedDevice(userID uint, deviceFingerprint string,
 // SendVerifyCode 发送验证码
 func (s *AuthService) SendVerifyCode(req *model.VerifyCodeRequest) error {
 	ctx := context.Background()
-	
+
 	// 生成6位数字验证码
 	verifyCode := generateNumericCode(6)
 
 	// 构建Redis键
 	var key string
-	var target string
-	
+
 	if req.Email != "" {
 		key = fmt.Sprintf("verify_code:email:%s:%s", req.Email, req.Action)
-		target = req.Email
 	} else if req.Phone != "" {
 		key = fmt.Sprintf("verify_code:phone:%s:%s", req.Phone, req.Action)
-		target = req.Phone
 	} else {
 		return errors.New("邮箱或手机号不能为空")
 	}
 
 	// 存储验证码到Redis，设置5分钟过期
 	redisClient := config.GetRedis()
+	if redisClient == nil {
+		logger.Errorf(ctx, "Redis客户端未初始化")
+		return errors.New("验证码发送失败")
+	}
+
 	err := redisClient.Set(ctx, key, verifyCode, 5*time.Minute).Err()
 	if err != nil {
 		logger.Errorf(ctx, "存储验证码到Redis失败: %v", err)
@@ -174,7 +192,7 @@ func (s *AuthService) SendVerifyCode(req *model.VerifyCodeRequest) error {
 		// 发送短信验证码
 		err = s.sendSMS(req.Phone, verifyCode)
 	}
-	
+
 	if err != nil {
 		logger.Errorf(ctx, "发送验证码失败: %v", err)
 		return errors.New("验证码发送失败")
@@ -196,7 +214,7 @@ func generateNumericCode(length int) string {
 // VerifyCodeLogin 验证码登录
 func (s *AuthService) VerifyCodeLogin(req *model.VerifyCodeLoginRequest, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
 	ctx := context.Background()
-	
+
 	// 验证验证码
 	var key string
 	if req.Email != "" {
@@ -209,6 +227,11 @@ func (s *AuthService) VerifyCodeLogin(req *model.VerifyCodeLoginRequest, ip stri
 
 	// 从Redis获取验证码
 	redisClient := config.GetRedis()
+	if redisClient == nil {
+		logger.Errorf(ctx, "Redis客户端未初始化")
+		return nil, errors.New("验证码验证失败")
+	}
+
 	storedCode, err := redisClient.Get(ctx, key).Result()
 	if err != nil {
 		if err == redis.Nil {
@@ -228,7 +251,7 @@ func (s *AuthService) VerifyCodeLogin(req *model.VerifyCodeLoginRequest, ip stri
 
 	// 查找用户
 	var user *model.User
-	
+
 	if req.Email != "" {
 		user, err = s.userRepo.FindByEmail(req.Email)
 	} else if req.Phone != "" {
@@ -275,19 +298,43 @@ func (s *AuthService) VerifyCodeLogin(req *model.VerifyCodeLoginRequest, ip stri
 // ThirdPartyLogin 第三方登录
 func (s *AuthService) ThirdPartyLogin(req *model.ThirdPartyLoginRequest, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
 	// 获取第三方用户信息
-	_, err := s.getThirdPartyUserInfo(req.Provider, req.Code)
+	thirdPartyUser, err := s.getThirdPartyUserInfo(req.Provider, req.Code)
 	if err != nil {
 		return nil, err
 	}
 
 	// 查找是否已存在关联
 	// TODO: 实现第三方用户关联查找
+	// 暂时根据邮箱查找用户
+	var user *model.User
+	if thirdPartyUser.Email != "" {
+		user, err = s.userRepo.FindByEmail(thirdPartyUser.Email)
+	}
 
 	// 如果不存在关联，创建新用户
-	// TODO: 实现新用户创建逻辑
+	if err != nil || user == nil {
+		// 创建新用户
+		nickname := thirdPartyUser.Nickname
+		if nickname == "" {
+			nickname = "第三方用户"
+		}
+
+		user = &model.User{
+			Username: "", // 第三方登录用户不需要用户名
+			Email:    thirdPartyUser.Email,
+			Password: "", // 第三方登录用户不需要密码
+			Nickname: nickname,
+			Phone:    thirdPartyUser.Phone,
+			Status:   1,
+		}
+		user, err = s.userRepo.Create(user)
+		if err != nil {
+			return nil, errors.New("创建用户失败")
+		}
+	}
 
 	// 检测异地登录
-	isAbnormal := s.detectAbnormalLogin(1, ip, deviceFingerprint) // 暂时使用用户ID 1
+	isAbnormal := s.detectAbnormalLogin(user.ID, ip, deviceFingerprint)
 
 	// 记录登录历史
 	var remark string
@@ -297,7 +344,7 @@ func (s *AuthService) ThirdPartyLogin(req *model.ThirdPartyLoginRequest, ip stri
 		remark = "正常登录"
 	}
 	loginHistory := &model.LoginHistory{
-		UserID:            1, // 暂时使用用户ID 1
+		UserID:            user.ID,
 		IP:                ip,
 		DeviceFingerprint: deviceFingerprint,
 		UserAgent:         userAgent,
@@ -311,7 +358,7 @@ func (s *AuthService) ThirdPartyLogin(req *model.ThirdPartyLoginRequest, ip stri
 	}
 
 	// 生成令牌
-	return s.generateTokens(1, "", ip, deviceFingerprint) // 暂时使用用户ID 1
+	return s.generateTokens(user.ID, "", ip, deviceFingerprint)
 }
 
 // getThirdPartyUserInfo 获取第三方用户信息
@@ -330,7 +377,7 @@ func (s *AuthService) getThirdPartyUserInfo(provider string, code string) (*mode
 }
 
 // getWechatUserInfo 获取微信用户信息
-func (s *AuthService) getWechatUserInfo(code string) (*model.ThirdPartyUser, error) {
+func (s *AuthService) getWechatUserInfo(_ string) (*model.ThirdPartyUser, error) {
 	// TODO: 实现微信用户信息获取
 	return &model.ThirdPartyUser{
 		Provider: "wechat",
@@ -348,7 +395,7 @@ func (s *AuthService) getWechatUserInfo(code string) (*model.ThirdPartyUser, err
 }
 
 // getDingTalkUserInfo 获取钉钉用户信息
-func (s *AuthService) getDingTalkUserInfo(code string) (*model.ThirdPartyUser, error) {
+func (s *AuthService) getDingTalkUserInfo(_ string) (*model.ThirdPartyUser, error) {
 	// TODO: 实现钉钉用户信息获取
 	return &model.ThirdPartyUser{
 		Provider: "dingtalk",
@@ -366,7 +413,7 @@ func (s *AuthService) getDingTalkUserInfo(code string) (*model.ThirdPartyUser, e
 }
 
 // getGitHubUserInfo 获取GitHub用户信息
-func (s *AuthService) getGitHubUserInfo(code string) (*model.ThirdPartyUser, error) {
+func (s *AuthService) getGitHubUserInfo(_ string) (*model.ThirdPartyUser, error) {
 	// TODO: 实现GitHub用户信息获取
 	return &model.ThirdPartyUser{
 		Provider: "github",
@@ -424,8 +471,13 @@ func (s *AuthService) Register(req *model.UserRegisterRequest) (*model.UserRespo
 
 // generateTokens 生成令牌
 func (s *AuthService) generateTokens(userID uint, clientID string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
+	// 检查config是否为nil
+	if s.config == nil {
+		return nil, errors.New("配置未初始化")
+	}
+
 	// 检查并发会话数限制
-	if s.config != nil && s.config.JWT.MaxConcurrentSessions > 0 {
+	if s.config.JWT.MaxConcurrentSessions > 0 {
 		err := s.checkConcurrentSessions(userID)
 		if err != nil {
 			return nil, err
@@ -484,12 +536,21 @@ func (s *AuthService) checkConcurrentSessions(userID uint) error {
 		return nil
 	}
 
+	// 过滤出有效的令牌（未撤销且未过期）
+	var validTokens []*model.Token
+	now := time.Now()
+	for _, token := range tokens {
+		if !token.Revoked && token.ExpiresAt.After(now) {
+			validTokens = append(validTokens, token)
+		}
+	}
+
 	// 检查会话数是否超过限制
-	if len(tokens) >= s.config.JWT.MaxConcurrentSessions {
+	if len(validTokens) >= s.config.JWT.MaxConcurrentSessions {
 		// 超过限制，踢掉最旧的会话
 		// 按创建时间排序，找到最旧的令牌
 		var oldestToken *model.Token
-		for _, token := range tokens {
+		for _, token := range validTokens {
 			if oldestToken == nil || token.CreatedAt.Before(oldestToken.CreatedAt) {
 				oldestToken = token
 			}
@@ -497,8 +558,11 @@ func (s *AuthService) checkConcurrentSessions(userID uint) error {
 
 		// 撤销最旧的令牌
 		if oldestToken != nil {
-			// 这里应该调用撤销令牌的方法
-			// TODO: 实现令牌撤销逻辑
+			oldestToken.Revoked = true
+			_, err := s.tokenRepo.Update(oldestToken)
+			if err != nil {
+				logger.Errorf(context.Background(), "撤销旧令牌失败: %v", err)
+			}
 		}
 	}
 
@@ -507,6 +571,11 @@ func (s *AuthService) checkConcurrentSessions(userID uint) error {
 
 // generateAccessToken 生成访问令牌
 func (s *AuthService) generateAccessToken(userID uint, clientID string, ip string, deviceFingerprint string) (string, int, error) {
+	// 检查config是否为nil
+	if s.config == nil {
+		return "", 0, errors.New("配置未初始化")
+	}
+
 	// 设置过期时间
 	expiresIn := s.config.JWT.AccessTokenExpiry
 	expirationTime := time.Now().Add(time.Duration(expiresIn) * time.Second)
@@ -562,6 +631,11 @@ func (s *AuthService) generateAccessToken(userID uint, clientID string, ip strin
 
 // generateRefreshToken 生成刷新令牌
 func (s *AuthService) generateRefreshToken(userID uint, clientID string) (string, int, error) {
+	// 检查config是否为nil
+	if s.config == nil {
+		return "", 0, errors.New("配置未初始化")
+	}
+
 	// 设置过期时间
 	expiresIn := s.config.JWT.RefreshTokenExpiry
 	expirationTime := time.Now().Add(time.Duration(expiresIn) * time.Second)
@@ -600,6 +674,11 @@ func (s *AuthService) generateRefreshToken(userID uint, clientID string) (string
 
 // ValidateToken 验证令牌
 func (s *AuthService) ValidateToken(tokenString string, ip string, deviceFingerprint string) (*model.Claims, error) {
+	// 检查config是否为nil
+	if s.config == nil {
+		return nil, errors.New("配置未初始化")
+	}
+
 	// 解析令牌
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		// 验证签名方法
@@ -632,11 +711,31 @@ func (s *AuthService) ValidateToken(tokenString string, ip string, deviceFingerp
 	}
 
 	// 转换为自定义声明
-	userID := uint(claims["user_id"].(float64))
-	username := claims["username"].(string)
-	email := claims["email"].(string)
-	scope := claims["scope"].(string)
-	clientID := claims["client_id"].(string)
+	userIDFloat, ok := claims["user_id"].(float64)
+	if !ok {
+		return nil, errors.New("无效的用户ID")
+	}
+	userID := uint(userIDFloat)
+
+	username, ok := claims["username"].(string)
+	if !ok {
+		username = ""
+	}
+
+	email, ok := claims["email"].(string)
+	if !ok {
+		email = ""
+	}
+
+	scope, ok := claims["scope"].(string)
+	if !ok {
+		scope = ""
+	}
+
+	clientID, ok := claims["client_id"].(string)
+	if !ok {
+		clientID = ""
+	}
 
 	// 提取IP和设备指纹
 	var tokenIP string
@@ -749,8 +848,8 @@ func (s *AuthService) Logout(userID uint, ip string, deviceFingerprint string, u
 				IP:                ip,
 				DeviceFingerprint: deviceFingerprint,
 				UserAgent:         userAgent,
-				LoginTime:         time.Now(),
-				Status:            0, // 0表示登出
+				LoginTime:         time.Now(), // 使用LoginTime字段记录时间，保持与登录记录一致
+				Status:            0,          // 0表示登出
 				IsAbnormal:        false,
 				Remark:            "用户主动登出",
 			}
@@ -772,7 +871,7 @@ func (s *AuthService) revokeUserTokens(userID uint) error {
 }
 
 // notifyClients 通知所有已登录的应用
-func (s *AuthService) notifyClients(userID uint) error {
+func (s *AuthService) notifyClients(_ uint) error {
 	// TODO: 实现通知客户端的逻辑
 	// 1. 查询用户的所有活跃会话，获取关联的客户端应用
 	// 2. 向每个客户端应用发送登出通知（通过回调URL）
@@ -988,44 +1087,42 @@ func (s *AuthService) sendMail(to string, subject string, body string) error {
 	// 发送邮件
 	addr := fmt.Sprintf("%s:%d", s.config.Mail.Host, s.config.Mail.Port)
 	auth := smtp.PlainAuth("", s.config.Mail.Username, s.config.Mail.Password, s.config.Mail.Host)
-	
-	var err error
+
 	if s.config.Mail.UseSSL {
-		err = smtp.SendMail(addr, auth, s.config.Mail.From, []string{to}, []byte(mailContent))
+		return smtp.SendMail(addr, auth, s.config.Mail.From, []string{to}, []byte(mailContent))
 	} else {
 		// 非SSL连接
-		c, err := smtp.Dial(addr)
-		if err != nil {
-			return err
+		c, dialErr := smtp.Dial(addr)
+		if dialErr != nil {
+			return dialErr
 		}
 		defer c.Close()
 
-		if err := c.Hello("localhost"); err != nil {
-			return err
+		if helloErr := c.Hello("localhost"); helloErr != nil {
+			return helloErr
 		}
 
-		if err := c.Auth(auth); err != nil {
-			return err
+		if authErr := c.Auth(auth); authErr != nil {
+			return authErr
 		}
 
-		if err := c.Mail(s.config.Mail.From); err != nil {
-			return err
+		if mailErr := c.Mail(s.config.Mail.From); mailErr != nil {
+			return mailErr
 		}
 
-		if err := c.Rcpt(to); err != nil {
-			return err
+		if rcptErr := c.Rcpt(to); rcptErr != nil {
+			return rcptErr
 		}
 
-		w, err := c.Data()
-		if err != nil {
-			return err
+		w, dataErr := c.Data()
+		if dataErr != nil {
+			return dataErr
 		}
 		defer w.Close()
 
-		_, err = w.Write([]byte(mailContent))
+		_, writeErr := w.Write([]byte(mailContent))
+		return writeErr
 	}
-
-	return err
 }
 
 // sendSMS 发送短信验证码

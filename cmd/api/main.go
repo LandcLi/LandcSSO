@@ -29,7 +29,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
-
+	logger.InitLogger(cfg)
 	// 初始化数据库连接
 	err = config.InitDatabase(&cfg.Database)
 	if err != nil {
