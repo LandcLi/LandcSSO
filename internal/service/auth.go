@@ -6,8 +6,11 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"math/rand"
+	"net/smtp"
+	"strings"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/internal/model"
@@ -15,6 +18,7 @@ import (
 	"github.com/LandcLi/LandcSSO/pkg/config"
 	"github.com/LandcLi/LandcSSO/pkg/logger"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -135,43 +139,100 @@ func (s *AuthService) handleTrustedDevice(userID uint, deviceFingerprint string,
 
 // SendVerifyCode 发送验证码
 func (s *AuthService) SendVerifyCode(req *model.VerifyCodeRequest) error {
-	// 生成6位验证码
-	_ = generateRandomString(6)
+	ctx := context.Background()
+	
+	// 生成6位数字验证码
+	verifyCode := generateNumericCode(6)
 
-	// 存储验证码到Redis，设置5分钟过期
-	_ = "verify_code:" + req.Email + ":" + req.Phone + ":" + req.Action
-	// 这里应该使用Redis存储验证码，暂时使用内存存储
-	// TODO: 实现Redis存储验证码
-
-	// 模拟发送验证码
+	// 构建Redis键
+	var key string
+	var target string
+	
 	if req.Email != "" {
-		// 发送邮件验证码
-		// TODO: 实现邮件发送
+		key = fmt.Sprintf("verify_code:email:%s:%s", req.Email, req.Action)
+		target = req.Email
 	} else if req.Phone != "" {
-		// 发送短信验证码
-		// TODO: 实现短信发送
+		key = fmt.Sprintf("verify_code:phone:%s:%s", req.Phone, req.Action)
+		target = req.Phone
 	} else {
 		return errors.New("邮箱或手机号不能为空")
+	}
+
+	// 存储验证码到Redis，设置5分钟过期
+	redisClient := config.GetRedis()
+	err := redisClient.Set(ctx, key, verifyCode, 5*time.Minute).Err()
+	if err != nil {
+		logger.Errorf(ctx, "存储验证码到Redis失败: %v", err)
+		return errors.New("验证码发送失败")
+	}
+
+	// 发送验证码
+	if req.Email != "" {
+		// 发送邮件验证码
+		err = s.sendMail(req.Email, "验证码", fmt.Sprintf("您的验证码是: %s，5分钟内有效", verifyCode))
+	} else if req.Phone != "" {
+		// 发送短信验证码
+		err = s.sendSMS(req.Phone, verifyCode)
+	}
+	
+	if err != nil {
+		logger.Errorf(ctx, "发送验证码失败: %v", err)
+		return errors.New("验证码发送失败")
 	}
 
 	return nil
 }
 
+// generateNumericCode 生成数字验证码
+func generateNumericCode(length int) string {
+	const charset = "0123456789"
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[rand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
 // VerifyCodeLogin 验证码登录
 func (s *AuthService) VerifyCodeLogin(req *model.VerifyCodeLoginRequest, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
+	ctx := context.Background()
+	
 	// 验证验证码
-	// TODO: 实现验证码验证逻辑
+	var key string
+	if req.Email != "" {
+		key = fmt.Sprintf("verify_code:email:%s:login", req.Email)
+	} else if req.Phone != "" {
+		key = fmt.Sprintf("verify_code:phone:%s:login", req.Phone)
+	} else {
+		return nil, errors.New("邮箱或手机号不能为空")
+	}
+
+	// 从Redis获取验证码
+	redisClient := config.GetRedis()
+	storedCode, err := redisClient.Get(ctx, key).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return nil, errors.New("验证码已过期或不存在")
+		}
+		logger.Errorf(ctx, "从Redis获取验证码失败: %v", err)
+		return nil, errors.New("验证码验证失败")
+	}
+
+	// 验证验证码
+	if storedCode != req.VerifyCode {
+		return nil, errors.New("验证码错误")
+	}
+
+	// 验证码验证成功后删除
+	_ = redisClient.Del(ctx, key).Err()
 
 	// 查找用户
 	var user *model.User
-	var err error
-
+	
 	if req.Email != "" {
 		user, err = s.userRepo.FindByEmail(req.Email)
 	} else if req.Phone != "" {
 		user, err = s.userRepo.FindByPhone(req.Phone)
-	} else {
-		return nil, errors.New("邮箱或手机号不能为空")
 	}
 
 	if err != nil {
@@ -911,4 +972,97 @@ func generateRandomString(length int) string {
 		b[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+// sendMail 发送邮件验证码
+func (s *AuthService) sendMail(to string, subject string, body string) error {
+	if s.config.Mail.Host == "" {
+		logger.Warnf(context.Background(), "邮件服务未配置，跳过发送")
+		return nil // 开发环境下可以跳过实际发送
+	}
+
+	// 构建邮件内容
+	mailContent := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n%s",
+		s.config.Mail.From, to, subject, body)
+
+	// 发送邮件
+	addr := fmt.Sprintf("%s:%d", s.config.Mail.Host, s.config.Mail.Port)
+	auth := smtp.PlainAuth("", s.config.Mail.Username, s.config.Mail.Password, s.config.Mail.Host)
+	
+	var err error
+	if s.config.Mail.UseSSL {
+		err = smtp.SendMail(addr, auth, s.config.Mail.From, []string{to}, []byte(mailContent))
+	} else {
+		// 非SSL连接
+		c, err := smtp.Dial(addr)
+		if err != nil {
+			return err
+		}
+		defer c.Close()
+
+		if err := c.Hello("localhost"); err != nil {
+			return err
+		}
+
+		if err := c.Auth(auth); err != nil {
+			return err
+		}
+
+		if err := c.Mail(s.config.Mail.From); err != nil {
+			return err
+		}
+
+		if err := c.Rcpt(to); err != nil {
+			return err
+		}
+
+		w, err := c.Data()
+		if err != nil {
+			return err
+		}
+		defer w.Close()
+
+		_, err = w.Write([]byte(mailContent))
+	}
+
+	return err
+}
+
+// sendSMS 发送短信验证码
+func (s *AuthService) sendSMS(phone string, code string) error {
+	if s.config.SMS.Provider == "" {
+		logger.Warnf(context.Background(), "短信服务未配置，跳过发送")
+		return nil // 开发环境下可以跳过实际发送
+	}
+
+	// 根据不同的短信提供商实现不同的发送逻辑
+	switch s.config.SMS.Provider {
+	case "aliyun":
+		// 阿里云短信发送实现（示例）
+		return s.sendAliyunSMS(phone, code)
+	case "tencent":
+		// 腾讯云短信发送实现（示例）
+		return s.sendTencentSMS(phone, code)
+	default:
+		logger.Errorf(context.Background(), "不支持的短信提供商: %s", s.config.SMS.Provider)
+		return errors.New("不支持的短信提供商")
+	}
+}
+
+// sendAliyunSMS 发送阿里云短信
+func (s *AuthService) sendAliyunSMS(phone string, code string) error {
+	// 这里实现阿里云短信发送的实际代码
+	// 示例代码，实际需要引入阿里云SDK
+	logger.Infof(context.Background(), "发送阿里云短信到 %s: 验证码 %s", phone, code)
+	// TODO: 实现阿里云短信发送SDK调用
+	return nil
+}
+
+// sendTencentSMS 发送腾讯云短信
+func (s *AuthService) sendTencentSMS(phone string, code string) error {
+	// 这里实现腾讯云短信发送的实际代码
+	// 示例代码，实际需要引入腾讯云SDK
+	logger.Infof(context.Background(), "发送腾讯云短信到 %s: 验证码 %s", phone, code)
+	// TODO: 实现腾讯云短信发送SDK调用
+	return nil
 }

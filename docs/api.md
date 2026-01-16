@@ -435,6 +435,79 @@
 6. 撤销用户的所有令牌
 7. 返回密码修改成功响应
 
+### 2.6 发送验证码
+
+- **URL**: `/user/send-verify-code`
+- **方法**: POST
+- **描述**: 发送短信或邮箱验证码
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| email | string | 否 | 邮箱（与phone二选一） |
+| phone | string | 否 | 手机号（与email二选一） |
+| action | string | 是 | 验证码用途，支持"login"或"register" |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "验证码发送成功",
+  "data": null
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 生成6位数字验证码
+3. 将验证码存储到Redis，设置5分钟过期
+4. 根据email或phone发送验证码
+5. 返回验证码发送成功响应
+
+### 2.7 验证码登录
+
+- **URL**: `/user/verify-code-login`
+- **方法**: POST
+- **描述**: 使用验证码登录
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| email | string | 否 | 邮箱（与phone二选一） |
+| phone | string | 否 | 手机号（与email二选一） |
+| verifyCode | string | 是 | 6位验证码 |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "登录成功",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "Bearer",
+    "expires_in": 1800,
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "scope": "openid profile email"
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 从Redis获取存储的验证码
+3. 验证验证码是否正确
+4. 查找用户
+5. 检查用户状态
+6. 生成令牌
+7. 创建会话
+8. 返回登录成功响应
+
 ## 3. 客户端管理接口
 
 ### 3.1 客户端列表

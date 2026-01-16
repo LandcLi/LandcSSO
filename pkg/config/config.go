@@ -14,6 +14,27 @@ type Config struct {
 	JWT         JWTConfig         `yaml:"jwt"`
 	Log         LogConfig         `yaml:"log"`
 	MultiActive MultiActiveConfig `yaml:"multiActive"`
+	Mail        MailConfig        `yaml:"mail"`
+	SMS         SMSConfig         `yaml:"sms"`
+}
+
+// MailConfig 邮件配置
+type MailConfig struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	From     string `yaml:"from"`
+	UseSSL   bool   `yaml:"useSSL"`
+}
+
+// SMSConfig 短信配置
+type SMSConfig struct {
+	Provider  string            `yaml:"provider"`
+	APIKey    string            `yaml:"apiKey"`
+	SecretKey string            `yaml:"secretKey"`
+	SignName  string            `yaml:"signName"`
+	Templates map[string]string `yaml:"templates"`
 }
 
 // ServerConfig 服务器配置

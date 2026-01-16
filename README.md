@@ -360,6 +360,27 @@ newAccessToken := newTokenResp.AccessToken
 | log.format | string | "text" | 日志格式（text/json） |
 | log.outputPath | string | "stdout" | 日志输出路径 |
 
+### 邮件配置
+
+| 配置项 | 类型 | 默认值 | 描述 |
+|-------|------|-------|------|
+| mail.host | string | "" | SMTP服务器地址 |
+| mail.port | int | 587 | SMTP服务器端口 |
+| mail.username | string | "" | SMTP用户名 |
+| mail.password | string | "" | SMTP密码 |
+| mail.from | string | "" | 发件人邮箱 |
+| mail.useSSL | bool | false | 是否使用SSL |
+
+### 短信配置
+
+| 配置项 | 类型 | 默认值 | 描述 |
+|-------|------|-------|------|
+| sms.provider | string | "" | 短信服务商（aliyun/tencent） |
+| sms.apiKey | string | "" | API密钥 |
+| sms.secretKey | string | "" | 密钥 |
+| sms.signName | string | "" | 短信签名 |
+| sms.templates | map[string]string | {} | 短信模板ID | |
+
 ## API文档
 
 详细的API文档请查看 [docs/api.md](docs/api.md)。
