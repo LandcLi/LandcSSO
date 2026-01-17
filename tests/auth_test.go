@@ -37,9 +37,10 @@ func TestAuthService_Login(t *testing.T) {
 	tokenRepo := repository.NewTokenRepository(db, redisClient)
 	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
 	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 
 	// 创建认证服务
-	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, cfg)
+	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
 
 	// 测试登录
 	testCases := []struct {
@@ -96,9 +97,10 @@ func TestAuthService_Register(t *testing.T) {
 	tokenRepo := repository.NewTokenRepository(db, redisClient)
 	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
 	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 
 	// 创建认证服务
-	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, cfg)
+	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
 
 	// 测试注册
 	testCases := []struct {
@@ -157,9 +159,10 @@ func TestAuthService_ValidateToken(t *testing.T) {
 	tokenRepo := repository.NewTokenRepository(db, redisClient)
 	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
 	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 
 	// 创建认证服务
-	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, cfg)
+	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
 
 	// 测试登录获取令牌
 	loginReq := &model.UserLoginRequest{

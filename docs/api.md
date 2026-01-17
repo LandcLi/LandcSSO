@@ -508,6 +508,207 @@
 7. 创建会话
 8. 返回登录成功响应
 
+### 2.8 第三方登录
+
+- **URL**: `/user/third-party-login`
+- **方法**: POST
+- **描述**: 第三方登录
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| provider | string | 是 | 第三方提供商，支持：wechat, dingtalk, github |
+| code | string | 是 | 第三方授权码 |
+| state | string | 是 | 状态参数 |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "登录成功",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "Bearer",
+    "expires_in": 1800,
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "scope": "openid profile email"
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 调用第三方API获取用户信息
+3. 查找或创建用户
+4. 生成令牌
+5. 创建会话
+6. 返回登录成功响应
+
+### 2.9 生物识别登录
+
+- **URL**: `/user/biometric-login`
+- **方法**: POST
+- **描述**: 生物识别登录
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| userId | uint | 是 | 用户ID |
+| deviceFingerprint | string | 是 | 设备指纹 |
+| biometricData | string | 是 | 生物识别数据 |
+| biometricType | string | 是 | 生物识别类型，支持：fingerprint, face, iris |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "登录成功",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "Bearer",
+    "expires_in": 1800,
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "scope": "openid profile email"
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 验证用户和设备
+3. 验证生物识别数据
+4. 生成令牌
+5. 创建会话
+6. 返回登录成功响应
+
+### 2.10 扫码登录 - 开始
+
+- **URL**: `/user/scan-code-login`
+- **方法**: GET
+- **描述**: 开始扫码登录，获取二维码ID
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "获取二维码成功",
+  "data": {
+    "qrcode_id": "qrcode_123456",
+    "expire_time": 1768031711
+  }
+}
+```
+
+**逻辑**:
+
+1. 生成二维码ID
+2. 存储二维码状态到Redis
+3. 返回二维码ID和过期时间
+
+### 2.11 扫码登录 - 验证
+
+- **URL**: `/user/scan-code-login/verify`
+- **方法**: POST
+- **描述**: 验证扫码登录（用户确认）
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| qrcode_id | string | 是 | 二维码ID |
+| user_id | uint | 是 | 用户ID |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "验证成功",
+  "data": null
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 验证二维码状态
+3. 更新二维码状态为已确认
+4. 返回验证成功响应
+
+### 2.12 扫码登录 - 检查状态
+
+- **URL**: `/user/scan-code-login/status`
+- **方法**: GET
+- **描述**: 检查扫码登录状态
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| qrcode_id | string | 是 | 二维码ID |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "二维码已确认",
+  "data": {
+    "status": "confirmed",
+    "user_id": 1
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 检查二维码状态
+3. 返回二维码状态
+
+### 2.13 扫码登录 - 完成
+
+- **URL**: `/user/scan-code-login/complete`
+- **方法**: POST
+- **描述**: 完成扫码登录，获取令牌
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| qrcode_id | string | 是 | 二维码ID |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "登录成功",
+  "data": {
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "Bearer",
+    "expires_in": 1800,
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "scope": "openid profile email"
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 验证二维码状态
+3. 生成令牌
+4. 创建会话
+5. 返回登录成功响应
+
 ## 3. 客户端管理接口
 
 ### 3.1 客户端列表
@@ -773,7 +974,7 @@
 
 ### 4.2 日志详情
 
-- **URL**: `/audit/detail`
+- **URL**: `/audit/detail/:id`
 - **方法**: GET
 - **描述**: 获取审计日志详情
 
@@ -787,7 +988,7 @@
 
 | 参数名 | 类型 | 必填 | 描述 |
 |-------|------|------|------|
-| id | int | 是 | 日志ID |
+| id | int | 是 | 日志ID（路径参数） |
 
 **响应**:
 
@@ -817,11 +1018,117 @@
 4. 查询审计日志详情
 5. 返回审计日志详情响应
 
+### 4.3 用户审计日志
+
+- **URL**: `/audit/user/:user_id`
+- **方法**: GET
+- **描述**: 获取指定用户的审计日志列表
+
+**请求头**:
+
+| 头部名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| Authorization | string | 是 | Bearer {access_token} |
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| user_id | int | 是 | 用户ID（路径参数） |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "获取成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "event_type": "login",
+        "user_id": 1,
+        "username": "admin",
+        "ip": "127.0.0.1",
+        "user_agent": "Mozilla/5.0...",
+        "details": "用户登录",
+        "status": "success",
+        "created_at": "2026-01-10T12:00:00Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "size": 10
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证访问令牌
+2. 检查用户权限
+3. 验证请求参数
+4. 查询用户审计日志列表
+5. 返回用户审计日志列表响应
+
+### 4.4 事件类型审计日志
+
+- **URL**: `/audit/type/:event_type`
+- **方法**: GET
+- **描述**: 获取指定事件类型的审计日志列表
+
+**请求头**:
+
+| 头部名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| Authorization | string | 是 | Bearer {access_token} |
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| event_type | string | 是 | 事件类型（路径参数） |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "获取成功",
+  "data": {
+    "list": [
+      {
+        "id": 1,
+        "event_type": "login",
+        "user_id": 1,
+        "username": "admin",
+        "ip": "127.0.0.1",
+        "user_agent": "Mozilla/5.0...",
+        "details": "用户登录",
+        "status": "success",
+        "created_at": "2026-01-10T12:00:00Z"
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "size": 10
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证访问令牌
+2. 检查用户权限
+3. 验证请求参数
+4. 查询指定事件类型的审计日志列表
+5. 返回审计日志列表响应
+
 ## 5. 监控接口
 
 ### 5.1 系统状态
 
-- **URL**: `/monitor/status`
+- **URL**: `/monitor/system/status`
 - **方法**: GET
 - **描述**: 获取系统状态
 
@@ -866,25 +1173,17 @@
 5. 收集监控指标
 6. 返回系统状态响应
 
-### 5.2 指标列表
+### 5.2 认证指标
 
-- **URL**: `/monitor/metrics`
+- **URL**: `/monitor/auth/metrics`
 - **方法**: GET
-- **描述**: 获取监控指标列表
+- **描述**: 获取认证相关监控指标
 
 **请求头**:
 
 | 头部名 | 类型 | 必填 | 描述 |
 |-------|------|------|------|
 | Authorization | string | 是 | Bearer {access_token} |
-
-**请求参数**:
-
-| 参数名 | 类型 | 必填 | 描述 |
-|-------|------|------|------|
-| metric | string | 否 | 指标名称 |
-| start_time | string | 否 | 开始时间，格式：2026-01-10T12:00:00Z |
-| end_time | string | 否 | 结束时间，格式：2026-01-10T12:00:00Z |
 
 **响应**:
 
@@ -904,8 +1203,8 @@
       "timestamp": "2026-01-10T12:00:00Z"
     },
     {
-      "name": "token_issuance_rate",
-      "value": 10.2,
+      "name": "auth_failures",
+      "value": 5,
       "timestamp": "2026-01-10T12:00:00Z"
     }
   ]
@@ -916,9 +1215,102 @@
 
 1. 验证访问令牌
 2. 检查用户权限
-3. 验证请求参数
-4. 查询监控指标
-5. 返回监控指标列表响应
+3. 收集认证相关监控指标
+4. 返回认证指标响应
+
+### 5.3 令牌指标
+
+- **URL**: `/monitor/token/metrics`
+- **方法**: GET
+- **描述**: 获取令牌相关监控指标
+
+**请求头**:
+
+| 头部名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| Authorization | string | 是 | Bearer {access_token} |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "获取成功",
+  "data": [
+    {
+      "name": "token_issuance_rate",
+      "value": 10.2,
+      "timestamp": "2026-01-10T12:00:00Z"
+    },
+    {
+      "name": "token_revocation_rate",
+      "value": 2.5,
+      "timestamp": "2026-01-10T12:00:00Z"
+    },
+    {
+      "name": "active_tokens",
+      "value": 100,
+      "timestamp": "2026-01-10T12:00:00Z"
+    }
+  ]
+}
+```
+
+**逻辑**:
+
+1. 验证访问令牌
+2. 检查用户权限
+3. 收集令牌相关监控指标
+4. 返回令牌指标响应
+
+### 5.4 异常事件
+
+- **URL**: `/monitor/anomaly/events`
+- **方法**: GET
+- **描述**: 获取异常事件列表
+
+**请求头**:
+
+| 头部名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| Authorization | string | 是 | Bearer {access_token} |
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| severity | string | 否 | 严重程度，支持：low, medium, high |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "获取成功",
+  "data": [
+    {
+      "id": 1,
+      "event_type": "login_anomaly",
+      "severity": "high",
+      "description": "异地登录",
+      "user_id": 1,
+      "ip": "123.45.67.89",
+      "device_fingerprint": "device_123",
+      "status": "pending",
+      "timestamp": "2026-01-10T12:00:00Z",
+      "created_at": "2026-01-10T12:00:00Z",
+      "updated_at": "2026-01-10T12:00:00Z"
+    }
+  ]
+}
+```
+
+**逻辑**:
+
+1. 验证访问令牌
+2. 检查用户权限
+3. 收集异常事件
+4. 返回异常事件响应
 
 ## 6. 健康检查接口
 

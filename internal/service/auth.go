@@ -5,17 +5,22 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"net/smtp"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/internal/model"
 	"github.com/LandcLi/LandcSSO/internal/repository"
 	"github.com/LandcLi/LandcSSO/pkg/config"
 	"github.com/LandcLi/LandcSSO/pkg/logger"
+	"github.com/google/uuid"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
@@ -24,26 +29,30 @@ import (
 
 // AuthService 认证服务
 type AuthService struct {
-	userRepo          *repository.UserRepository
-	tokenRepo         *repository.TokenRepository
-	loginHistoryRepo  *repository.LoginHistoryRepository
-	trustedDeviceRepo *repository.TrustedDeviceRepository
-	config            *config.Config
-	privateKey        *rsa.PrivateKey
-	publicKey         *rsa.PublicKey
+	userRepo           *repository.UserRepository
+	tokenRepo          *repository.TokenRepository
+	loginHistoryRepo   *repository.LoginHistoryRepository
+	trustedDeviceRepo  *repository.TrustedDeviceRepository
+	thirdPartyUserRepo *repository.ThirdPartyUserRepository
+	clientService      *ClientService
+	sessionService     *SessionService
+	config             *config.Config
+	privateKey         *rsa.PrivateKey
+	publicKey          *rsa.PublicKey
 }
 
 // NewAuthService 创建认证服务实例
-func NewAuthService(userRepo *repository.UserRepository, tokenRepo *repository.TokenRepository, loginHistoryRepo *repository.LoginHistoryRepository, trustedDeviceRepo *repository.TrustedDeviceRepository, config *config.Config) *AuthService {
+func NewAuthService(userRepo *repository.UserRepository, tokenRepo *repository.TokenRepository, loginHistoryRepo *repository.LoginHistoryRepository, trustedDeviceRepo *repository.TrustedDeviceRepository, thirdPartyUserRepo *repository.ThirdPartyUserRepository, config *config.Config) *AuthService {
 	// Go 1.20+ 不需要手动初始化随机数种子
 	// 系统会自动初始化
 
 	service := &AuthService{
-		userRepo:          userRepo,
-		tokenRepo:         tokenRepo,
-		loginHistoryRepo:  loginHistoryRepo,
-		trustedDeviceRepo: trustedDeviceRepo,
-		config:            config,
+		userRepo:           userRepo,
+		tokenRepo:          tokenRepo,
+		loginHistoryRepo:   loginHistoryRepo,
+		trustedDeviceRepo:  trustedDeviceRepo,
+		thirdPartyUserRepo: thirdPartyUserRepo,
+		config:             config,
 	}
 
 	// 加载RSA密钥（如果配置了）
@@ -74,6 +83,16 @@ func NewAuthService(userRepo *repository.UserRepository, tokenRepo *repository.T
 	}
 
 	return service
+}
+
+// SetClientService 设置客户端服务
+func (s *AuthService) SetClientService(clientService *ClientService) {
+	s.clientService = clientService
+}
+
+// SetSessionService 设置会话服务
+func (s *AuthService) SetSessionService(sessionService *SessionService) {
+	s.sessionService = sessionService
 }
 
 // Login 用户登录
@@ -303,36 +322,97 @@ func (s *AuthService) ThirdPartyLogin(req *model.ThirdPartyLoginRequest, ip stri
 		return nil, err
 	}
 
-	// 查找是否已存在关联
-	// TODO: 实现第三方用户关联查找
-	// 暂时根据邮箱查找用户
+	// 查找是否已存在第三方用户关联
 	var user *model.User
+	var link *model.ThirdPartyUserLink
+
+	// 1. 首先根据OpenID和提供商查找关联
+	if s.thirdPartyUserRepo != nil {
+		link, err = s.thirdPartyUserRepo.FindByOpenIDAndProvider(thirdPartyUser.OpenID, req.Provider)
+		if err == nil && link != nil {
+			// 找到关联，获取用户信息
+			user, err = s.userRepo.FindByID(link.UserID)
+			if err == nil && user != nil {
+				// 关联存在且用户有效
+				return s.completeLogin(user, ip, deviceFingerprint, userAgent)
+			}
+		}
+
+		// 2. 如果OpenID未找到，尝试通过UnionID查找
+		if thirdPartyUser.UnionID != "" {
+			link, err = s.thirdPartyUserRepo.FindByUnionID(thirdPartyUser.UnionID)
+			if err == nil && link != nil {
+				// 找到关联，获取用户信息
+				user, err = s.userRepo.FindByID(link.UserID)
+				if err == nil && user != nil {
+					// 关联存在且用户有效
+					return s.completeLogin(user, ip, deviceFingerprint, userAgent)
+				}
+			}
+		}
+	}
+
+	// 3. 如果没有找到关联，尝试通过邮箱查找用户
 	if thirdPartyUser.Email != "" {
 		user, err = s.userRepo.FindByEmail(thirdPartyUser.Email)
+		if err == nil && user != nil {
+			// 找到邮箱匹配的用户，创建关联
+			if s.thirdPartyUserRepo != nil {
+				newLink := &model.ThirdPartyUserLink{
+					UserID:   user.ID,
+					Provider: req.Provider,
+					OpenID:   thirdPartyUser.OpenID,
+					UnionID:  thirdPartyUser.UnionID,
+				}
+				_, err = s.thirdPartyUserRepo.Create(newLink)
+				if err != nil {
+					// 创建关联失败不影响登录
+				}
+			}
+			return s.completeLogin(user, ip, deviceFingerprint, userAgent)
+		}
 	}
 
-	// 如果不存在关联，创建新用户
-	if err != nil || user == nil {
-		// 创建新用户
-		nickname := thirdPartyUser.Nickname
-		if nickname == "" {
-			nickname = "第三方用户"
-		}
+	// 4. 如果没有找到任何关联，创建新用户
+	// 创建新用户
+	nickname := thirdPartyUser.Nickname
+	if nickname == "" {
+		nickname = "第三方用户"
+	}
 
-		user = &model.User{
-			Username: "", // 第三方登录用户不需要用户名
-			Email:    thirdPartyUser.Email,
-			Password: "", // 第三方登录用户不需要密码
-			Nickname: nickname,
-			Phone:    thirdPartyUser.Phone,
-			Status:   1,
+	user = &model.User{
+		Username: "", // 第三方登录用户不需要用户名
+		Email:    thirdPartyUser.Email,
+		Password: "", // 第三方登录用户不需要密码
+		Nickname: nickname,
+		Phone:    thirdPartyUser.Phone,
+		Status:   1,
+	}
+	user, err = s.userRepo.Create(user)
+	if err != nil {
+		return nil, errors.New("创建用户失败")
+	}
+
+	// 为新用户创建第三方关联
+	if s.thirdPartyUserRepo != nil {
+		newLink := &model.ThirdPartyUserLink{
+			UserID:   user.ID,
+			Provider: req.Provider,
+			OpenID:   thirdPartyUser.OpenID,
+			UnionID:  thirdPartyUser.UnionID,
 		}
-		user, err = s.userRepo.Create(user)
+		_, err = s.thirdPartyUserRepo.Create(newLink)
 		if err != nil {
-			return nil, errors.New("创建用户失败")
+			// 创建关联失败不影响登录
 		}
 	}
 
+	// 完成登录
+	return s.completeLogin(user, ip, deviceFingerprint, userAgent)
+}
+
+// completeLogin 完成登录流程
+func (s *AuthService) completeLogin(user *model.User, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
 	// 检测异地登录
 	isAbnormal := s.detectAbnormalLogin(user.ID, ip, deviceFingerprint)
 
@@ -428,6 +508,154 @@ func (s *AuthService) getGitHubUserInfo(_ string) (*model.ThirdPartyUser, error)
 		Province: "",
 		City:     "",
 	}, nil
+}
+
+// BiometricLogin 生物识别登录
+func (s *AuthService) BiometricLogin(req *model.BiometricLoginRequest, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
+	// 验证生物识别信息
+	// TODO: 实现生物识别验证
+	// 暂时简单验证设备指纹和用户ID
+	if req.UserID == 0 || req.DeviceFingerprint == "" {
+		return nil, errors.New("无效的生物识别信息")
+	}
+
+	// 查找用户
+	user, err := s.userRepo.FindByID(req.UserID)
+	if err != nil || user == nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	// 检测异地登录
+	isAbnormal := s.detectAbnormalLogin(user.ID, ip, deviceFingerprint)
+
+	// 记录登录历史
+	var remark string
+	if isAbnormal {
+		remark = "异地登录检测"
+	} else {
+		remark = "生物识别登录"
+	}
+	loginHistory := &model.LoginHistory{
+		UserID:            user.ID,
+		IP:                ip,
+		DeviceFingerprint: deviceFingerprint,
+		UserAgent:         userAgent,
+		LoginTime:         time.Now(),
+		Status:            1,
+		IsAbnormal:        isAbnormal,
+		Remark:            remark,
+	}
+	if s.loginHistoryRepo != nil {
+		s.loginHistoryRepo.Create(loginHistory)
+	}
+
+	// 生成令牌
+	return s.generateTokens(user.ID, "", ip, deviceFingerprint)
+}
+
+// StartScanCodeLogin 开始扫码登录
+func (s *AuthService) StartScanCodeLogin() (string, error) {
+	// 生成二维码ID
+	qrcodeID := uuid.New().String()
+
+	// 存储二维码状态到Redis
+	ctx := context.Background()
+	key := fmt.Sprintf("scan_code_login:%s", qrcodeID)
+	// 设置二维码状态为待扫描，有效期5分钟
+	err := s.tokenRepo.GetRedisClient().Set(ctx, key, "pending", 5*time.Minute).Err()
+	if err != nil {
+		return "", err
+	}
+
+	return qrcodeID, nil
+}
+
+// VerifyScanCodeLogin 验证扫码登录
+func (s *AuthService) VerifyScanCodeLogin(qrcodeID string, userID uint) error {
+	// 验证二维码是否存在
+	ctx := context.Background()
+	key := fmt.Sprintf("scan_code_login:%s", qrcodeID)
+
+	// 检查二维码状态
+	_, err := s.tokenRepo.GetRedisClient().Get(ctx, key).Result()
+	if err != nil {
+		return errors.New("二维码不存在或已过期")
+	}
+
+	// 更新二维码状态为已确认
+	err = s.tokenRepo.GetRedisClient().Set(ctx, key, fmt.Sprintf("confirmed:%d", userID), 5*time.Minute).Err()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CheckScanCodeLoginStatus 检查扫码登录状态
+func (s *AuthService) CheckScanCodeLoginStatus(qrcodeID string) (uint, error) {
+	// 检查二维码状态
+	ctx := context.Background()
+	key := fmt.Sprintf("scan_code_login:%s", qrcodeID)
+
+	status, err := s.tokenRepo.GetRedisClient().Get(ctx, key).Result()
+	if err != nil {
+		return 0, errors.New("二维码不存在或已过期")
+	}
+
+	// 解析状态
+	if strings.HasPrefix(status, "confirmed:") {
+		// 提取用户ID
+		userIDStr := strings.TrimPrefix(status, "confirmed:")
+		userID, err := strconv.ParseUint(userIDStr, 10, 32)
+		if err != nil {
+			return 0, errors.New("无效的用户ID")
+		}
+		return uint(userID), nil
+	}
+
+	return 0, errors.New("二维码尚未确认")
+}
+
+// CompleteScanCodeLogin 完成扫码登录
+func (s *AuthService) CompleteScanCodeLogin(qrcodeID string, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
+	// 检查扫码登录状态
+	userID, err := s.CheckScanCodeLoginStatus(qrcodeID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 查找用户
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil || user == nil {
+		return nil, errors.New("用户不存在")
+	}
+
+	// 检测异地登录
+	isAbnormal := s.detectAbnormalLogin(user.ID, ip, deviceFingerprint)
+
+	// 记录登录历史
+	var remark string
+	if isAbnormal {
+		remark = "异地登录检测"
+	} else {
+		remark = "扫码登录"
+	}
+	loginHistory := &model.LoginHistory{
+		UserID:            user.ID,
+		IP:                ip,
+		DeviceFingerprint: deviceFingerprint,
+		UserAgent:         userAgent,
+		LoginTime:         time.Now(),
+		Status:            1,
+		IsAbnormal:        isAbnormal,
+		Remark:            remark,
+	}
+	if s.loginHistoryRepo != nil {
+		s.loginHistoryRepo.Create(loginHistory)
+	}
+
+	// 生成令牌
+	return s.generateTokens(user.ID, "", ip, deviceFingerprint)
 }
 
 // Register 用户注册
@@ -826,19 +1054,27 @@ func (s *AuthService) RevokeToken(tokenString string) error {
 
 // Logout 用户登出
 func (s *AuthService) Logout(userID uint, ip string, deviceFingerprint string, userAgent string) error {
-	// 撤销用户的所有令牌
+	// 1. 撤销用户的所有令牌
 	err := s.revokeUserTokens(userID)
 	if err != nil {
 		// 令牌撤销失败不影响登出流程
 	}
 
-	// 通知所有已登录的应用
+	// 2. 清理用户的所有会话
+	if s.sessionService != nil {
+		err = s.sessionService.DeleteUserSessions(userID)
+		if err != nil {
+			// 会话清理失败不影响登出流程
+		}
+	}
+
+	// 3. 通知所有已登录的应用
 	err = s.notifyClients(userID)
 	if err != nil {
 		// 通知失败不影响登出流程
 	}
 
-	// 记录登出审计日志
+	// 4. 记录登出审计日志
 	if s.loginHistoryRepo != nil {
 		_, err := s.userRepo.FindByID(userID)
 		if err == nil {
@@ -871,12 +1107,76 @@ func (s *AuthService) revokeUserTokens(userID uint) error {
 }
 
 // notifyClients 通知所有已登录的应用
-func (s *AuthService) notifyClients(_ uint) error {
-	// TODO: 实现通知客户端的逻辑
-	// 1. 查询用户的所有活跃会话，获取关联的客户端应用
-	// 2. 向每个客户端应用发送登出通知（通过回调URL）
+func (s *AuthService) notifyClients(userID uint) error {
+	ctx := context.Background()
+
+	// 1. 查询用户的所有活跃令牌
+	tokens, err := s.tokenRepo.FindByUserID(userID)
+	if err != nil {
+		logger.Errorf(ctx, "查询用户活跃令牌失败: %v", err)
+		return err
+	}
+
+	// 2. 提取并去重客户端ID
+	clientIDs := make(map[string]bool)
+	for _, token := range tokens {
+		if token.ClientID != "" {
+			clientIDs[token.ClientID] = true
+		}
+	}
+
+	// 3. 向每个客户端应用发送登出通知
+	for clientID := range clientIDs {
+		// 获取客户端信息
+		client, err := s.clientService.GetByClientID(clientID)
+		if err != nil {
+			logger.Errorf(ctx, "获取客户端信息失败: %v", err)
+			continue
+		}
+
+		// 解析重定向URI
+		var redirectURIs []string
+		if client.RedirectURIs != "" {
+			json.Unmarshal([]byte(client.RedirectURIs), &redirectURIs)
+		}
+
+		// 向每个重定向URI发送登出通知
+		for _, redirectURI := range redirectURIs {
+			// 构建登出通知URL
+			logoutURL := fmt.Sprintf("%s?logout=1&client_id=%s", redirectURI, clientID)
+
+			// 发送HTTP请求通知登出
+			s.sendLogoutNotification(logoutURL)
+		}
+	}
 
 	return nil
+}
+
+// sendLogoutNotification 发送登出通知
+func (s *AuthService) sendLogoutNotification(url string) {
+	ctx := context.Background()
+
+	// 创建HTTP客户端
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	// 发送GET请求
+	resp, err := client.Get(url)
+	if err != nil {
+		logger.Errorf(ctx, "发送登出通知失败: %v, URL: %s", err, url)
+		return
+	}
+	defer resp.Body.Close()
+
+	// 检查响应状态
+	if resp.StatusCode != http.StatusOK {
+		logger.Errorf(ctx, "登出通知响应失败: %s, URL: %s", resp.Status, url)
+		return
+	}
+
+	logger.Infof(ctx, "登出通知发送成功: %s", url)
 }
 
 // GenerateAuthorizationCode 生成授权码

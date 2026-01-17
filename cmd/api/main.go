@@ -45,19 +45,25 @@ func main() {
 	}
 
 	// 初始化仓库
+	auditRepo := repository.NewAuditRepository(config.GetDB())
 	userRepo := repository.NewUserRepository(config.GetDB(), config.GetRedis())
 	tokenRepo := repository.NewTokenRepository(config.GetDB(), config.GetRedis())
-	clientRepo := repository.NewClientRepository(config.GetDB())
-	auditRepo := repository.NewAuditRepository(config.GetDB())
 	loginHistoryRepo := repository.NewLoginHistoryRepository(config.GetDB())
 	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.GetDB(), config.GetRedis())
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.GetDB(), config.GetRedis())
+	clientRepo := repository.NewClientRepository(config.GetDB())
 	monitorRepo := repository.NewMonitorRepository(config.GetDB())
 
 	// 初始化服务
 	auditService := service.NewAuditService(auditRepo)
-	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, cfg)
+	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
 	clientService := service.NewClientService(clientRepo, cfg)
+	sessionService := service.NewSessionService()
 	monitorService := service.NewMonitorService(monitorRepo, auditService, cfg)
+
+	// 设置服务依赖
+	authService.SetClientService(clientService)
+	authService.SetSessionService(sessionService)
 
 	// 设置服务到API模块
 	api.SetAuthService(authService)

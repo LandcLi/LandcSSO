@@ -63,6 +63,11 @@ func RegisterRoutes(r *gin.Engine) {
 		userGroup.POST("/send-verify-code", SendVerifyCode)
 		userGroup.POST("/verify-code-login", VerifyCodeLogin)
 		userGroup.POST("/third-party-login", ThirdPartyLogin)
+		userGroup.POST("/biometric-login", BiometricLogin)
+		userGroup.GET("/scan-code-login", StartScanCodeLogin)
+		userGroup.POST("/scan-code-login/verify", VerifyScanCodeLogin)
+		userGroup.GET("/scan-code-login/status", CheckScanCodeLoginStatus)
+		userGroup.POST("/scan-code-login/complete", CompleteScanCodeLogin)
 		userGroup.GET("/profile", GetProfile)
 		userGroup.PUT("/profile", UpdateProfile)
 		userGroup.POST("/change-password", ChangePassword)
@@ -1265,6 +1270,179 @@ func ThirdPartyLogin(c *gin.Context) {
 	userAgent := c.GetHeader("User-Agent")
 
 	resp, err := authService.ThirdPartyLogin(&req, ip, deviceFingerprint, userAgent)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// BiometricLogin 生物识别登录
+func BiometricLogin(c *gin.Context) {
+	var req model.BiometricLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request",
+		})
+		return
+	}
+
+	if authService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Service not initialized",
+		})
+		return
+	}
+
+	// 获取IP地址、设备指纹和用户代理
+	ip := c.ClientIP()
+	deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
+	userAgent := c.GetHeader("User-Agent")
+
+	resp, err := authService.BiometricLogin(&req, ip, deviceFingerprint, userAgent)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, resp)
+}
+
+// StartScanCodeLogin 开始扫码登录
+func StartScanCodeLogin(c *gin.Context) {
+	if authService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Service not initialized",
+		})
+		return
+	}
+
+	// 生成二维码ID
+	qrcodeID, err := authService.StartScanCodeLogin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    10000,
+		"message": "获取二维码成功",
+		"data": gin.H{
+			"qrcode_id":   qrcodeID,
+			"expire_time": time.Now().Add(5 * time.Minute).Unix(),
+		},
+	})
+}
+
+// VerifyScanCodeLogin 验证扫码登录
+func VerifyScanCodeLogin(c *gin.Context) {
+	var req struct {
+		QrcodeID string `json:"qrcode_id" binding:"required"`
+		UserID   uint   `json:"user_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request",
+		})
+		return
+	}
+
+	if authService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Service not initialized",
+		})
+		return
+	}
+
+	// 验证扫码登录
+	err := authService.VerifyScanCodeLogin(req.QrcodeID, req.UserID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    10000,
+		"message": "验证成功",
+		"data":    nil,
+	})
+}
+
+// CheckScanCodeLoginStatus 检查扫码登录状态
+func CheckScanCodeLoginStatus(c *gin.Context) {
+	qrcodeID := c.Query("qrcode_id")
+	if qrcodeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Qrcode ID is required",
+		})
+		return
+	}
+
+	if authService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Service not initialized",
+		})
+		return
+	}
+
+	// 检查扫码登录状态
+	userID, err := authService.CheckScanCodeLoginStatus(qrcodeID)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"code":    10001,
+			"message": "二维码尚未确认",
+			"data": gin.H{
+				"status": "pending",
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code":    10000,
+		"message": "二维码已确认",
+		"data": gin.H{
+			"status":  "confirmed",
+			"user_id": userID,
+		},
+	})
+}
+
+// CompleteScanCodeLogin 完成扫码登录
+func CompleteScanCodeLogin(c *gin.Context) {
+	var req struct {
+		QrcodeID string `json:"qrcode_id" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request",
+		})
+		return
+	}
+
+	if authService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Service not initialized",
+		})
+		return
+	}
+
+	// 获取IP地址、设备指纹和用户代理
+	ip := c.ClientIP()
+	deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
+	userAgent := c.GetHeader("User-Agent")
+
+	// 完成扫码登录
+	resp, err := authService.CompleteScanCodeLogin(req.QrcodeID, ip, deviceFingerprint, userAgent)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),

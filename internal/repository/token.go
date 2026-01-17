@@ -220,3 +220,8 @@ func (r *TokenRepository) MarkAsUsed(id uint) error {
 func (r *TokenRepository) DeleteExpiredCodes() error {
 	return r.db.Where("expires_at < NOW()").Delete(&model.AuthorizationCode{}).Error
 }
+
+// GetRedisClient 获取Redis客户端
+func (r *TokenRepository) GetRedisClient() redis.UniversalClient {
+	return r.redisClient
+}

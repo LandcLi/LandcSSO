@@ -21,6 +21,38 @@ CREATE TABLE IF NOT EXISTS `users` (
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
+-- 第三方用户关联表
+CREATE TABLE IF NOT EXISTS `third_party_user_links` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
+  `provider` varchar(50) NOT NULL COMMENT '第三方提供商',
+  `open_id` varchar(100) NOT NULL COMMENT '第三方开放ID',
+  `union_id` varchar(100) DEFAULT NULL COMMENT '第三方统一ID',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_provider` (`provider`),
+  KEY `idx_open_id` (`open_id`),
+  KEY `idx_union_id` (`union_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方用户关联表';
+
+-- 信任设备表
+CREATE TABLE IF NOT EXISTS `trusted_devices` (
+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
+  `device_fingerprint` varchar(255) NOT NULL COMMENT '设备指纹',
+  `device_name` varchar(100) DEFAULT NULL COMMENT '设备名称',
+  `last_login_ip` varchar(50) DEFAULT NULL COMMENT '最后登录IP',
+  `first_login_time` timestamp NULL DEFAULT NULL COMMENT '首次登录时间',
+  `last_login_time` timestamp NULL DEFAULT NULL COMMENT '最后登录时间',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_device_fingerprint` (`device_fingerprint`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='信任设备表';
+
 -- 令牌表
 CREATE TABLE IF NOT EXISTS `tokens` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -32,6 +64,8 @@ CREATE TABLE IF NOT EXISTS `tokens` (
   `client_id` varchar(100) DEFAULT NULL COMMENT '客户端ID',
   `scope` varchar(255) DEFAULT NULL COMMENT '权限范围',
   `revoked` tinyint(1) DEFAULT '0' COMMENT '是否已撤销：1-是，0-否',
+  `ip` varchar(50) DEFAULT NULL COMMENT 'IP地址',
+  `device_fingerprint` varchar(255) DEFAULT NULL COMMENT '设备指纹',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -48,12 +82,12 @@ CREATE TABLE IF NOT EXISTS `tokens` (
 CREATE TABLE IF NOT EXISTS `clients` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `client_id` varchar(100) NOT NULL COMMENT '客户端ID',
-  `client_secret` varchar(100) NOT NULL COMMENT '客户端密钥',
+  `client_secret` varchar(255) NOT NULL COMMENT '客户端密钥',
   `name` varchar(100) NOT NULL COMMENT '客户端名称',
-  `redirect_uris` text COMMENT '重定向URI列表，JSON格式',
+  `redirect_uris` varchar(1000) DEFAULT NULL COMMENT '重定向URI列表，JSON格式',
   `scope` varchar(255) DEFAULT NULL COMMENT '权限范围',
-  `grant_types` text COMMENT '授权类型列表，JSON格式',
-  `response_types` text COMMENT '响应类型列表，JSON格式',
+  `grant_types` varchar(255) DEFAULT NULL COMMENT '授权类型列表，JSON格式',
+  `response_types` varchar(255) DEFAULT NULL COMMENT '响应类型列表，JSON格式',
   `token_endpoint_auth_method` varchar(50) DEFAULT 'client_secret_basic' COMMENT '令牌端点认证方法',
   `status` int(11) DEFAULT '1' COMMENT '状态：1-启用，0-禁用',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -151,18 +185,19 @@ CREATE TABLE IF NOT EXISTS `anomaly_events` (
 -- 授权码表
 CREATE TABLE IF NOT EXISTS `authorization_codes` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `code` varchar(100) NOT NULL COMMENT '授权码',
+  `code` varchar(255) NOT NULL COMMENT '授权码',
   `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
   `client_id` varchar(100) NOT NULL COMMENT '客户端ID',
-  `redirect_uri` varchar(255) NOT NULL COMMENT '重定向URI',
+  `redirect_uri` varchar(512) NOT NULL COMMENT '重定向URI',
   `scope` varchar(255) DEFAULT NULL COMMENT '权限范围',
-  `state` varchar(100) DEFAULT NULL COMMENT '状态',
-  `nonce` varchar(100) DEFAULT NULL COMMENT '随机值',
+  `state` varchar(255) DEFAULT NULL COMMENT '状态',
+  `nonce` varchar(255) DEFAULT NULL COMMENT '随机值',
   `code_challenge` varchar(255) DEFAULT NULL COMMENT '代码挑战',
-  `code_challenge_method` varchar(20) DEFAULT NULL COMMENT '代码挑战方法',
+  `code_challenge_method` varchar(50) DEFAULT NULL COMMENT '代码挑战方法',
   `expires_at` datetime NOT NULL COMMENT '过期时间',
   `used` tinyint(1) DEFAULT '0' COMMENT '是否已使用',
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_code` (`code`),
   KEY `idx_user_id` (`user_id`),

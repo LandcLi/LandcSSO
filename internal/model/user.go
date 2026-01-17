@@ -46,6 +46,14 @@ type ThirdPartyLoginRequest struct {
 	State    string `json:"state" binding:"required"`
 }
 
+// BiometricLoginRequest 生物识别登录请求
+type BiometricLoginRequest struct {
+	UserID            uint   `json:"userId" binding:"required"`
+	DeviceFingerprint string `json:"deviceFingerprint" binding:"required"`
+	BiometricData     string `json:"biometricData" binding:"required"`
+	BiometricType     string `json:"biometricType" binding:"required,oneof=fingerprint face iris"`
+}
+
 // ThirdPartyUser 第三方用户信息
 type ThirdPartyUser struct {
 	Provider string `json:"provider"`

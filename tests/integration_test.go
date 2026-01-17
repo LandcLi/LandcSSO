@@ -42,10 +42,11 @@ func TestIntegration_CompleteAuthFlow(t *testing.T) {
 	auditRepo := repository.NewAuditRepository(db)
 	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
 	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 	monitorRepo := repository.NewMonitorRepository(db)
 
 	// 创建服务
-	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, cfg)
+	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
 	clientService := service.NewClientService(clientRepo, cfg)
 	auditService := service.NewAuditService(auditRepo)
 	monitorService := service.NewMonitorService(monitorRepo, auditService, cfg)
@@ -122,9 +123,10 @@ func TestIntegration_UserManagement(t *testing.T) {
 	tokenRepo := repository.NewTokenRepository(db, redisClient)
 	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
 	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 
 	// 创建服务
-	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, cfg)
+	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
 
 	// 设置服务
 	api.SetAuthService(authService)
