@@ -246,7 +246,7 @@ Content-Type: application/json
 ### 1. 初始化SDK
 
 ```go
-import "LandcSSO/pkg/sdk"
+import "github.com/LandcLi/LandcSSO/pkg/sdk"
 
 config := &sdk.Config{
     ClientID:     "test-client",
@@ -302,6 +302,140 @@ if err != nil {
 }
 
 newAccessToken := newTokenResp.AccessToken
+```
+
+### 6. 第三方登录
+
+```go
+req := &sdk.ThirdPartyLoginRequest{
+    Provider: "github",
+    Code:     "github_authorization_code",
+    State:    "123456",
+}
+
+tokenResp, err := client.ThirdPartyLogin(req)
+if err != nil {
+    // 处理错误
+}
+```
+
+### 7. 生物识别登录
+
+```go
+req := &sdk.BiometricLoginRequest{
+    UserID:       "123456",
+    BiometricID:  "fingerprint_1",
+    Signature:    "biometric_signature",
+    DeviceID:     "device_123",
+    DeviceInfo:   "iPhone 13",
+}
+
+tokenResp, err := client.BiometricLogin(req)
+if err != nil {
+    // 处理错误
+}
+```
+
+### 8. 扫码登录
+
+#### 8.1 开始扫码登录
+
+```go
+req := &sdk.ScanCodeLoginRequest{
+    ClientID:    "test-client",
+    RedirectURI: "http://localhost:3000/callback",
+    Scope:       "openid profile email",
+    State:       "123456",
+}
+
+qrcodeResp, err := client.StartScanCodeLogin(req)
+if err != nil {
+    // 处理错误
+}
+
+// 显示二维码给用户
+fmt.Println("QR Code URL:", qrcodeResp.QRCodeURL)
+fmt.Println("QR Code ID:", qrcodeResp.QRCodeID)
+```
+
+#### 8.2 检查扫码登录状态
+
+```go
+req := &sdk.ScanCodeStatusRequest{
+    Code: qrcodeResp.QRCodeID,
+}
+
+statusResp, err := client.CheckScanCodeStatus(req)
+if err != nil {
+    // 处理错误
+}
+
+if statusResp.Status == "completed" && statusResp.TokenResponse != nil {
+    // 登录成功，获取令牌
+    accessToken := statusResp.TokenResponse.AccessToken
+}
+```
+
+### 9. 审计日志
+
+```go
+req := &sdk.AuditLogRequest{
+    UserID:    "123456",
+    EventType: "login",
+    StartTime: time.Now().Add(-24 * time.Hour),
+    EndTime:   time.Now(),
+    Page:      1,
+    PageSize:  10,
+}
+
+logsResp, err := client.GetAuditLogs(req)
+if err != nil {
+    // 处理错误
+}
+
+// 处理审计日志
+for _, log := range logsResp.Logs {
+    fmt.Println("Event:", log.EventType, "at", log.Timestamp)
+}
+```
+
+### 10. 监控
+
+#### 10.1 获取系统状态
+
+```go
+systemStatus, err := client.GetSystemStatus()
+if err != nil {
+    // 处理错误
+}
+
+fmt.Println("CPU Usage:", systemStatus.CPUUsage)
+fmt.Println("Memory Usage:", systemStatus.MemoryUsage)
+```
+
+#### 10.2 获取认证指标
+
+```go
+authMetrics, err := client.GetAuthMetrics()
+if err != nil {
+    // 处理错误
+}
+
+fmt.Println("Login Success Rate:", authMetrics.LoginSuccessRate)
+fmt.Println("Average Login Latency:", authMetrics.AverageLoginLatency)
+```
+
+#### 10.3 获取异常事件
+
+```go
+exceptionEvents, err := client.GetExceptionEvents()
+if err != nil {
+    // 处理错误
+}
+
+for _, event := range exceptionEvents.Events {
+    fmt.Println("Exception:", event.Type, "at", event.Timestamp)
+}
 ```
 
 ## 配置说明
