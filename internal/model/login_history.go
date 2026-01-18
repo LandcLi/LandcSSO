@@ -18,6 +18,11 @@ type LoginHistory struct {
 	CreatedAt         time.Time `json:"created_at"`
 }
 
+// TableName 指定表名
+func (LoginHistory) TableName() string {
+	return "login_histories"
+}
+
 // LoginHistoryResponse 登录历史记录响应
 type LoginHistoryResponse struct {
 	ID                uint      `json:"id"`

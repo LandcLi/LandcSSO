@@ -18,6 +18,11 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// TableName 指定表名
+func (User) TableName() string {
+	return "users"
+}
+
 // UserLoginRequest 登录请求
 type UserLoginRequest struct {
 	Username   string `json:"username" binding:"required"`

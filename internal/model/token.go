@@ -21,6 +21,11 @@ type Token struct {
 	UpdatedAt         time.Time `json:"updated_at"`
 }
 
+// TableName 指定表名
+func (Token) TableName() string {
+	return "tokens"
+}
+
 // AuthorizationCode 授权码模型
 type AuthorizationCode struct {
 	ID                  uint      `json:"id" gorm:"primaryKey"`
@@ -37,6 +42,11 @@ type AuthorizationCode struct {
 	Used                bool      `json:"used" gorm:"default:false"`
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
+}
+
+// TableName 指定表名
+func (AuthorizationCode) TableName() string {
+	return "authorization_codes"
 }
 
 // TokenRequest 令牌请求

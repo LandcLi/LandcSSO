@@ -21,6 +21,11 @@ type Client struct {
 	UpdatedAt               time.Time `json:"updated_at"`
 }
 
+// TableName 指定表名
+func (Client) TableName() string {
+	return "clients"
+}
+
 // ClientResponse 客户端响应
 type ClientResponse struct {
 	ID                      uint      `json:"id"`
