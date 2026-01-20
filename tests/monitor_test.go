@@ -24,12 +24,9 @@ func TestMonitorService_GetSystemStatus(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
-	// 获取数据库连接
-	db := config.GetDB()
-
 	// 创建仓库
-	monitorRepo := repository.NewMonitorRepository(db)
-	auditRepo := repository.NewAuditRepository(db)
+	monitorRepo := repository.NewMonitorRepository(config.DBManager)
+	auditRepo := repository.NewAuditRepository(config.DBManager)
 
 	// 创建审计服务
 	auditService := service.NewAuditService(auditRepo)
@@ -65,12 +62,9 @@ func TestMonitorService_GetAuthMetrics(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
-	// 获取数据库连接
-	db := config.GetDB()
-
 	// 创建仓库
-	monitorRepo := repository.NewMonitorRepository(db)
-	auditRepo := repository.NewAuditRepository(db)
+	monitorRepo := repository.NewMonitorRepository(config.DBManager)
+	auditRepo := repository.NewAuditRepository(config.DBManager)
 
 	// 创建审计服务
 	auditService := service.NewAuditService(auditRepo)
@@ -109,12 +103,9 @@ func TestMonitorService_GetTokenMetrics(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
-	// 获取数据库连接
-	db := config.GetDB()
-
 	// 创建仓库
-	monitorRepo := repository.NewMonitorRepository(db)
-	auditRepo := repository.NewAuditRepository(db)
+	monitorRepo := repository.NewMonitorRepository(config.DBManager)
+	auditRepo := repository.NewAuditRepository(config.DBManager)
 
 	// 创建审计服务
 	auditService := service.NewAuditService(auditRepo)
