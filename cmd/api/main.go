@@ -45,14 +45,14 @@ func main() {
 	}
 
 	// 初始化仓库
-	auditRepo := repository.NewAuditRepository(config.DBManager)
-	userRepo := repository.NewUserRepository(config.DBManager, config.GetRedis())
-	tokenRepo := repository.NewTokenRepository(config.DBManager, config.GetRedis())
-	loginHistoryRepo := repository.NewLoginHistoryRepository(config.DBManager)
-	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.DBManager, config.GetRedis())
-	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.DBManager, config.GetRedis())
-	clientRepo := repository.NewClientRepository(config.DBManager)
-	monitorRepo := repository.NewMonitorRepository(config.DBManager)
+	auditRepo := repository.NewAuditRepository(config.GetDB())
+	userRepo := repository.NewUserRepository(config.GetDB(), config.GetRedis())
+	tokenRepo := repository.NewTokenRepository(config.GetDB(), config.GetRedis())
+	loginHistoryRepo := repository.NewLoginHistoryRepository(config.GetDB())
+	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.GetDB(), config.GetRedis())
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.GetDB(), config.GetRedis())
+	clientRepo := repository.NewClientRepository(config.GetDB())
+	monitorRepo := repository.NewMonitorRepository(config.GetDB())
 
 	// 初始化服务
 	auditService := service.NewAuditService(auditRepo)

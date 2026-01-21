@@ -3,7 +3,6 @@ module github.com/LandcLi/LandcSSO
 go 1.24.0
 
 require (
-	github.com/LandcLi/LandcBranchGorm v0.0.0-20260120165537-b64e63b5e23d
 	github.com/LandcLi/LandcCommonApi v0.0.0-20260116152221-0779acd06034
 	github.com/LandcLi/LandcLogFace v0.0.0-20260116151828-d3f377924b9a
 	github.com/gin-gonic/gin v1.11.0
@@ -19,6 +18,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
+	github.com/LandcLi/LandcBranchGorm v0.0.0-20260120161356-712cd051fd18 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.14.2 // indirect
 	github.com/bytedance/sonic/loader v0.4.0 // indirect
@@ -42,6 +42,9 @@ require (
 	github.com/gogf/gf/v2 v2.9.7 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grokify/html-strip-tags-go v0.1.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
+	github.com/jackc/pgx/v5 v5.4.3 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -78,4 +81,5 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gorm.io/driver/postgres v1.5.4 // indirect
 )

@@ -21,8 +21,11 @@ func TestAuditService_GetAllEvents(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
+	// 获取数据库连接
+	db := config.GetDB()
+
 	// 创建仓库
-	auditRepo := repository.NewAuditRepository(config.DBManager)
+	auditRepo := repository.NewAuditRepository(db)
 
 	// 创建审计服务
 	auditService := service.NewAuditService(auditRepo)
@@ -55,8 +58,11 @@ func TestAuditService_GetEventsByUserID(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
+	// 获取数据库连接
+	db := config.GetDB()
+
 	// 创建仓库
-	auditRepo := repository.NewAuditRepository(config.DBManager)
+	auditRepo := repository.NewAuditRepository(db)
 
 	// 创建审计服务
 	auditService := service.NewAuditService(auditRepo)
@@ -90,8 +96,11 @@ func TestAuditService_GetEventsByEventType(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
+	// 获取数据库连接
+	db := config.GetDB()
+
 	// 创建仓库
-	auditRepo := repository.NewAuditRepository(config.DBManager)
+	auditRepo := repository.NewAuditRepository(db)
 
 	// 创建审计服务
 	auditService := service.NewAuditService(auditRepo)

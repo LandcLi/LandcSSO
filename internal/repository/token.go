@@ -6,33 +6,29 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LandcLi/LandcBranchGorm/pkg/dbmanager"
 	"github.com/LandcLi/LandcSSO/internal/model"
 
 	"github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
 )
 
 // TokenRepository 令牌仓库
 type TokenRepository struct {
-	dbmanager   *dbmanager.DBManager
+	db          *gorm.DB
 	redisClient redis.UniversalClient
 }
 
 // NewTokenRepository 创建令牌仓库实例
-func NewTokenRepository(dbmanager *dbmanager.DBManager, redisClient redis.UniversalClient) *TokenRepository {
+func NewTokenRepository(db *gorm.DB, redisClient redis.UniversalClient) *TokenRepository {
 	return &TokenRepository{
-		dbmanager:   dbmanager,
+		db:          db,
 		redisClient: redisClient,
 	}
 }
 
 // Create 创建令牌
 func (r *TokenRepository) Create(token *model.Token) (*model.Token, error) {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return nil, err
-	}
-	err = db.Create(token).Error
+	err := r.db.Create(token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -41,15 +37,8 @@ func (r *TokenRepository) Create(token *model.Token) (*model.Token, error) {
 
 // FindByID 根据ID查找令牌
 func (r *TokenRepository) FindByID(id uint) (*model.Token, error) {
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var token model.Token
-	err = db.First(&token, id).Error
+	err := r.db.First(&token, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -71,15 +60,8 @@ func (r *TokenRepository) FindByAccessToken(accessToken string) (*model.Token, e
 	}
 
 	// 缓存未命中，从数据库中查找
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var token model.Token
-	err = db.Where("access_token = ?", accessToken).First(&token).Error
+	err := r.db.Where("access_token = ?", accessToken).First(&token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -115,15 +97,8 @@ func (r *TokenRepository) FindByRefreshToken(refreshToken string) (*model.Token,
 	}
 
 	// 缓存未命中，从数据库中查找
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var token model.Token
-	err = db.Where("refresh_token = ?", refreshToken).First(&token).Error
+	err := r.db.Where("refresh_token = ?", refreshToken).First(&token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -146,11 +121,7 @@ func (r *TokenRepository) FindByRefreshToken(refreshToken string) (*model.Token,
 
 // Update 更新令牌
 func (r *TokenRepository) Update(token *model.Token) (*model.Token, error) {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return nil, err
-	}
-	err = db.Save(token).Error
+	err := r.db.Save(token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -187,13 +158,9 @@ func (r *TokenRepository) Update(token *model.Token) (*model.Token, error) {
 
 // Delete 删除令牌
 func (r *TokenRepository) Delete(id uint) error {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return err
-	}
 	// 先获取令牌信息，以便删除缓存
 	var token model.Token
-	if err := db.First(&token, id).Error; err == nil {
+	if err := r.db.First(&token, id).Error; err == nil {
 		// 删除缓存
 		if r.redisClient != nil {
 			if token.AccessToken != "" {
@@ -207,20 +174,13 @@ func (r *TokenRepository) Delete(id uint) error {
 		}
 	}
 
-	return db.Delete(&model.Token{}, id).Error
+	return r.db.Delete(&model.Token{}, id).Error
 }
 
 // FindByUserID 根据用户ID查找令牌
 func (r *TokenRepository) FindByUserID(userID uint) ([]*model.Token, error) {
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var tokens []*model.Token
-	err = db.Where("user_id = ? AND revoked = ?", userID, false).Find(&tokens).Error
+	err := r.db.Where("user_id = ? AND revoked = ?", userID, false).Find(&tokens).Error
 	if err != nil {
 		return nil, err
 	}
@@ -229,20 +189,12 @@ func (r *TokenRepository) FindByUserID(userID uint) ([]*model.Token, error) {
 
 // RevokeByUserID 撤销用户的所有令牌
 func (r *TokenRepository) RevokeByUserID(userID uint) error {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return err
-	}
-	return db.Model(&model.Token{}).Where("user_id = ? AND revoked = ?", userID, false).Update("revoked", true).Error
+	return r.db.Model(&model.Token{}).Where("user_id = ? AND revoked = ?", userID, false).Update("revoked", true).Error
 }
 
 // CreateAuthorizationCode 创建授权码
 func (r *TokenRepository) CreateAuthorizationCode(code *model.AuthorizationCode) (*model.AuthorizationCode, error) {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return nil, err
-	}
-	err = db.Create(code).Error
+	err := r.db.Create(code).Error
 	if err != nil {
 		return nil, err
 	}
@@ -251,15 +203,8 @@ func (r *TokenRepository) CreateAuthorizationCode(code *model.AuthorizationCode)
 
 // FindByCode 根据授权码查找
 func (r *TokenRepository) FindByCode(code string) (*model.AuthorizationCode, error) {
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var authCode model.AuthorizationCode
-	err = db.Where("code = ?", code).First(&authCode).Error
+	err := r.db.Where("code = ?", code).First(&authCode).Error
 	if err != nil {
 		return nil, err
 	}
@@ -268,20 +213,12 @@ func (r *TokenRepository) FindByCode(code string) (*model.AuthorizationCode, err
 
 // MarkAsUsed 标记授权码为已使用
 func (r *TokenRepository) MarkAsUsed(id uint) error {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return err
-	}
-	return db.Model(&model.AuthorizationCode{}).Where("id = ?", id).Update("used", true).Error
+	return r.db.Model(&model.AuthorizationCode{}).Where("id = ?", id).Update("used", true).Error
 }
 
 // DeleteExpiredCodes 删除过期的授权码
 func (r *TokenRepository) DeleteExpiredCodes() error {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return err
-	}
-	return db.Where("expires_at < NOW()").Delete(&model.AuthorizationCode{}).Error
+	return r.db.Where("expires_at < NOW()").Delete(&model.AuthorizationCode{}).Error
 }
 
 // GetRedisClient 获取Redis客户端

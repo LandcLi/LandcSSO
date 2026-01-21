@@ -6,33 +6,29 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LandcLi/LandcBranchGorm/pkg/dbmanager"
 	"github.com/LandcLi/LandcSSO/internal/model"
 
 	"github.com/go-redis/redis/v8"
+	"gorm.io/gorm"
 )
 
 // UserRepository 用户仓库
 type UserRepository struct {
-	dbmanager   *dbmanager.DBManager
+	db          *gorm.DB
 	redisClient redis.UniversalClient
 }
 
 // NewUserRepository 创建用户仓库实例
-func NewUserRepository(dbmanager *dbmanager.DBManager, redisClient redis.UniversalClient) *UserRepository {
+func NewUserRepository(db *gorm.DB, redisClient redis.UniversalClient) *UserRepository {
 	return &UserRepository{
-		dbmanager:   dbmanager,
+		db:          db,
 		redisClient: redisClient,
 	}
 }
 
 // Create 创建用户
 func (r *UserRepository) Create(user *model.User) (*model.User, error) {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return nil, err
-	}
-	err = db.Create(user).Error
+	err := r.db.Create(user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -54,15 +50,8 @@ func (r *UserRepository) FindByID(id uint) (*model.User, error) {
 	}
 
 	// 缓存未命中，从数据库中查找
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var user model.User
-	err = db.First(&user, id).Error
+	err := r.db.First(&user, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -95,15 +84,8 @@ func (r *UserRepository) FindByUsername(username string) (*model.User, error) {
 	}
 
 	// 缓存未命中，从数据库中查找
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var user model.User
-	err = db.Where("username = ?", username).First(&user).Error
+	err := r.db.Where("username = ?", username).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -136,15 +118,8 @@ func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 	}
 
 	// 缓存未命中，从数据库中查找
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var user model.User
-	err = db.Where("email = ?", email).First(&user).Error
+	err := r.db.Where("email = ?", email).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -177,15 +152,8 @@ func (r *UserRepository) FindByPhone(phone string) (*model.User, error) {
 	}
 
 	// 缓存未命中，从数据库中查找
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, err
-		}
-	}
 	var user model.User
-	err = db.Where("phone = ?", phone).First(&user).Error
+	err := r.db.Where("phone = ?", phone).First(&user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -205,11 +173,7 @@ func (r *UserRepository) FindByPhone(phone string) (*model.User, error) {
 
 // Update 更新用户
 func (r *UserRepository) Update(user *model.User) (*model.User, error) {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return nil, err
-	}
-	err = db.Save(user).Error
+	err := r.db.Save(user).Error
 	if err != nil {
 		return nil, err
 	}
@@ -256,13 +220,9 @@ func (r *UserRepository) Update(user *model.User) (*model.User, error) {
 
 // Delete 删除用户
 func (r *UserRepository) Delete(id uint) error {
-	db, err := r.dbmanager.GetDB("sso_db", true)
-	if err != nil {
-		return err
-	}
 	// 先获取用户信息，以便删除缓存
 	var user model.User
-	if err := db.First(&user, id).Error; err == nil {
+	if err := r.db.First(&user, id).Error; err == nil {
 		// 删除缓存
 		if r.redisClient != nil {
 			// 删除ID缓存
@@ -289,30 +249,23 @@ func (r *UserRepository) Delete(id uint) error {
 		}
 	}
 
-	return db.Delete(&model.User{}, id).Error
+	return r.db.Delete(&model.User{}, id).Error
 }
 
 // List 获取用户列表
 func (r *UserRepository) List(page, pageSize int) ([]*model.User, int64, error) {
-	db, err := r.dbmanager.GetDB("sso_db", false)
-	if err != nil {
-		db, err = r.dbmanager.GetDB("sso_db", true)
-		if err != nil {
-			return nil, 0, err
-		}
-	}
 	var users []*model.User
 	var total int64
 
 	// 计算总数
-	err = db.Model(&model.User{}).Count(&total).Error
+	err := r.db.Model(&model.User{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// 分页查询
 	offset := (page - 1) * pageSize
-	err = db.Offset(offset).Limit(pageSize).Find(&users).Error
+	err = r.db.Offset(offset).Limit(pageSize).Find(&users).Error
 	if err != nil {
 		return nil, 0, err
 	}

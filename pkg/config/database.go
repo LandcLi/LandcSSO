@@ -10,8 +10,6 @@ import (
 	"gorm.io/gorm"
 )
 
-const DEFAULT_GROUP_NAME = "sso_db"
-
 // DBManager 全局数据库管理器
 var DBManager *dbmanager.DBManager
 
@@ -27,13 +25,11 @@ func (c *MySQLDialectorCreator) CreateDialector(config LandcBranchGorm.DBConfig)
 
 // InitDatabase 初始化数据库连接
 func InitDatabase(cfg *DatabaseConfig) error {
-	// 注册MySQL驱动
 	LandcBranchGorm.RegisterDialectorCreator("mysql", &MySQLDialectorCreator{})
-
 	// 创建主从组配置
-	groupConfig := LandcBranchGorm.MasterSlaveGroupConfig{
-		GroupName: DEFAULT_GROUP_NAME,
-		Master: LandcBranchGorm.DBConfig{
+	groupConfig := dbmanager.MasterSlaveGroupConfig{
+		GroupName: "sso_db",
+		Master: dbmanager.DBConfig{
 			Host:     cfg.Host,
 			Port:     cfg.Port,
 			User:     cfg.User,
@@ -41,7 +37,6 @@ func InitDatabase(cfg *DatabaseConfig) error {
 			DBName:   cfg.DBName,
 			MaxIdle:  cfg.MaxIdleConns,
 			MaxOpen:  cfg.MaxOpenConns,
-			Type:     "mysql",
 		},
 		LoadBalance: "round-robin",
 	}
@@ -54,7 +49,7 @@ func InitDatabase(cfg *DatabaseConfig) error {
 				slavePort = cfg.SlavePorts[i]
 			}
 
-			slaveConfig := LandcBranchGorm.DBConfig{
+			slaveConfig := dbmanager.DBConfig{
 				Host:     slaveHost,
 				Port:     slavePort,
 				User:     cfg.User,
@@ -62,7 +57,6 @@ func InitDatabase(cfg *DatabaseConfig) error {
 				DBName:   cfg.DBName,
 				MaxIdle:  cfg.MaxIdleConns,
 				MaxOpen:  cfg.MaxOpenConns,
-				Type:     "mysql",
 			}
 
 			groupConfig.Slaves = append(groupConfig.Slaves, slaveConfig)
@@ -70,7 +64,7 @@ func InitDatabase(cfg *DatabaseConfig) error {
 	}
 
 	// 初始化DB管理器
-	configs := []LandcBranchGorm.MasterSlaveGroupConfig{groupConfig}
+	configs := []dbmanager.MasterSlaveGroupConfig{groupConfig}
 	manager, err := LandcBranchGorm.NewDBManagerWithoutLogger(configs)
 	if err != nil {
 		return fmt.Errorf("初始化DB管理器失败: %v", err)
@@ -91,7 +85,7 @@ func GetDBManager() *dbmanager.DBManager {
 // GetDB 获取数据库连接（默认主库，用于写操作）
 func GetDB() *gorm.DB {
 	if DBManager != nil {
-		db, err := DBManager.GetDB(DEFAULT_GROUP_NAME, true)
+		db, err := DBManager.GetDB("sso_db", true)
 		if err != nil {
 			LandcLogFace.GetLogger().Error(fmt.Sprintf("获取主库连接失败: %v", err))
 			return nil
@@ -104,11 +98,11 @@ func GetDB() *gorm.DB {
 // GetSlaveDB 获取从库连接（用于读操作）
 func GetSlaveDB() *gorm.DB {
 	if DBManager != nil {
-		db, err := DBManager.GetDB(DEFAULT_GROUP_NAME, false)
+		db, err := DBManager.GetDB("sso_db", false)
 		if err != nil {
 			LandcLogFace.GetLogger().Error(fmt.Sprintf("获取从库连接失败: %v", err))
 			// 如果从库连接失败，返回主库
-			db, err = DBManager.GetDB(DEFAULT_GROUP_NAME, true)
+			db, err = DBManager.GetDB("sso_db", true)
 			if err != nil {
 				return nil
 			}

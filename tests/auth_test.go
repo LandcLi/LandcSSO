@@ -28,15 +28,16 @@ func TestAuthService_Login(t *testing.T) {
 		t.Skipf("初始化Redis失败: %v, 跳过测试", err)
 	}
 
-	// 获取Redis客户端
+	// 获取数据库连接和Redis客户端
+	db := config.GetDB()
 	redisClient := config.GetRedis()
 
 	// 创建仓库
-	userRepo := repository.NewUserRepository(config.DBManager, redisClient)
-	tokenRepo := repository.NewTokenRepository(config.DBManager, redisClient)
-	loginHistoryRepo := repository.NewLoginHistoryRepository(config.DBManager)
-	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.DBManager, redisClient)
-	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.DBManager, redisClient)
+	userRepo := repository.NewUserRepository(db, redisClient)
+	tokenRepo := repository.NewTokenRepository(db, redisClient)
+	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
+	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 
 	// 创建认证服务
 	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
@@ -87,15 +88,16 @@ func TestAuthService_Register(t *testing.T) {
 		t.Skipf("初始化Redis失败: %v, 跳过测试", err)
 	}
 
-	// 获取Redis客户端
+	// 获取数据库连接和Redis客户端
+	db := config.GetDB()
 	redisClient := config.GetRedis()
 
 	// 创建仓库
-	userRepo := repository.NewUserRepository(config.DBManager, redisClient)
-	tokenRepo := repository.NewTokenRepository(config.DBManager, redisClient)
-	loginHistoryRepo := repository.NewLoginHistoryRepository(config.DBManager)
-	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.DBManager, redisClient)
-	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.DBManager, redisClient)
+	userRepo := repository.NewUserRepository(db, redisClient)
+	tokenRepo := repository.NewTokenRepository(db, redisClient)
+	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
+	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 
 	// 创建认证服务
 	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
@@ -148,15 +150,16 @@ func TestAuthService_ValidateToken(t *testing.T) {
 		t.Skipf("初始化Redis失败: %v, 跳过测试", err)
 	}
 
-	// 获取Redis客户端
+	// 获取数据库连接和Redis客户端
+	db := config.GetDB()
 	redisClient := config.GetRedis()
 
 	// 创建仓库
-	userRepo := repository.NewUserRepository(config.DBManager, redisClient)
-	tokenRepo := repository.NewTokenRepository(config.DBManager, redisClient)
-	loginHistoryRepo := repository.NewLoginHistoryRepository(config.DBManager)
-	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.DBManager, redisClient)
-	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.DBManager, redisClient)
+	userRepo := repository.NewUserRepository(db, redisClient)
+	tokenRepo := repository.NewTokenRepository(db, redisClient)
+	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
+	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 
 	// 创建认证服务
 	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)

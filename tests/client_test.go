@@ -22,8 +22,11 @@ func TestClientService_List(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
+	// 获取数据库连接
+	db := config.GetDB()
+
 	// 创建仓库
-	clientRepo := repository.NewClientRepository(config.DBManager)
+	clientRepo := repository.NewClientRepository(db)
 
 	// 创建客户端服务
 	clientService := service.NewClientService(clientRepo, cfg)
@@ -57,8 +60,11 @@ func TestClientService_Create(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
+	// 获取数据库连接
+	db := config.GetDB()
+
 	// 创建仓库
-	clientRepo := repository.NewClientRepository(config.DBManager)
+	clientRepo := repository.NewClientRepository(db)
 
 	// 创建客户端服务
 	clientService := service.NewClientService(clientRepo, cfg)
@@ -100,8 +106,11 @@ func TestClientService_Update(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
+	// 获取数据库连接
+	db := config.GetDB()
+
 	// 创建仓库
-	clientRepo := repository.NewClientRepository(config.DBManager)
+	clientRepo := repository.NewClientRepository(db)
 
 	// 创建客户端服务
 	clientService := service.NewClientService(clientRepo, cfg)
@@ -138,8 +147,11 @@ func TestClientService_Delete(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过测试", err)
 	}
 
+	// 获取数据库连接
+	db := config.GetDB()
+
 	// 创建仓库
-	clientRepo := repository.NewClientRepository(config.DBManager)
+	clientRepo := repository.NewClientRepository(db)
 
 	// 创建客户端服务
 	clientService := service.NewClientService(clientRepo, cfg)

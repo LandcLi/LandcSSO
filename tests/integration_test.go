@@ -31,18 +31,19 @@ func TestIntegration_CompleteAuthFlow(t *testing.T) {
 		t.Skipf("初始化Redis失败: %v, 跳过集成测试", err)
 	}
 
-	// 获取Redis客户端
+	// 获取数据库连接和Redis客户端
+	db := config.GetDB()
 	redisClient := config.GetRedis()
 
 	// 创建仓库
-	userRepo := repository.NewUserRepository(config.DBManager, redisClient)
-	tokenRepo := repository.NewTokenRepository(config.DBManager, redisClient)
-	clientRepo := repository.NewClientRepository(config.DBManager)
-	auditRepo := repository.NewAuditRepository(config.DBManager)
-	loginHistoryRepo := repository.NewLoginHistoryRepository(config.DBManager)
-	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.DBManager, redisClient)
-	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.DBManager, redisClient)
-	monitorRepo := repository.NewMonitorRepository(config.DBManager)
+	userRepo := repository.NewUserRepository(db, redisClient)
+	tokenRepo := repository.NewTokenRepository(db, redisClient)
+	clientRepo := repository.NewClientRepository(db)
+	auditRepo := repository.NewAuditRepository(db)
+	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
+	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
+	monitorRepo := repository.NewMonitorRepository(db)
 
 	// 创建服务
 	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
@@ -113,15 +114,16 @@ func TestIntegration_UserManagement(t *testing.T) {
 		t.Skipf("初始化Redis失败: %v, 跳过集成测试", err)
 	}
 
-	// 获取Redis客户端
+	// 获取数据库连接和Redis客户端
+	db := config.GetDB()
 	redisClient := config.GetRedis()
 
 	// 创建仓库
-	userRepo := repository.NewUserRepository(config.DBManager, redisClient)
-	tokenRepo := repository.NewTokenRepository(config.DBManager, redisClient)
-	loginHistoryRepo := repository.NewLoginHistoryRepository(config.DBManager)
-	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.DBManager, redisClient)
-	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.DBManager, redisClient)
+	userRepo := repository.NewUserRepository(db, redisClient)
+	tokenRepo := repository.NewTokenRepository(db, redisClient)
+	loginHistoryRepo := repository.NewLoginHistoryRepository(db)
+	trustedDeviceRepo := repository.NewTrustedDeviceRepository(db, redisClient)
+	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(db, redisClient)
 
 	// 创建服务
 	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
@@ -160,8 +162,11 @@ func TestIntegration_ClientManagement(t *testing.T) {
 		t.Skipf("初始化数据库失败: %v, 跳过集成测试", err)
 	}
 
+	// 获取数据库连接
+	db := config.GetDB()
+
 	// 创建仓库
-	clientRepo := repository.NewClientRepository(config.DBManager)
+	clientRepo := repository.NewClientRepository(db)
 
 	// 创建服务
 	clientService := service.NewClientService(clientRepo, cfg)
