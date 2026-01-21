@@ -319,7 +319,51 @@ if err != nil {
 }
 ```
 
-### 7. 生物识别登录
+### 7. 获取第三方授权链接
+
+#### 7.1 获取微信授权链接
+
+```go
+redirectURI := "http://localhost:3000/wechat/callback"
+state := "123456"
+
+authURL, err := client.GetWechatAuthURL(redirectURI, state)
+if err != nil {
+    // 处理错误
+}
+// 重定向用户到authURL
+```
+
+#### 7.2 获取GitHub授权链接
+
+```go
+redirectURI := "http://localhost:3000/github/callback"
+state := "123456"
+scope := "user:email"
+codeChallenge := "challenge123"
+codeChallengeMethod := "S256"
+
+authURL, err := client.GetGitHubAuthURL(redirectURI, state, scope, codeChallenge, codeChallengeMethod)
+if err != nil {
+    // 处理错误
+}
+// 重定向用户到authURL
+```
+
+#### 7.3 获取支付宝授权链接
+
+```go
+redirectURI := "http://localhost:3000/alipay/callback"
+state := "123456"
+
+authURL, err := client.GetAlipayAuthURL(redirectURI, state)
+if err != nil {
+    // 处理错误
+}
+// 重定向用户到authURL
+```
+
+### 8. 生物识别登录
 
 ```go
 req := &sdk.BiometricLoginRequest{
@@ -336,9 +380,9 @@ if err != nil {
 }
 ```
 
-### 8. 扫码登录
+### 9. 扫码登录
 
-#### 8.1 开始扫码登录
+#### 9.1 开始扫码登录
 
 ```go
 req := &sdk.ScanCodeLoginRequest{

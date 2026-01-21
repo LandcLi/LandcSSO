@@ -54,6 +54,21 @@ jwt:
   accessTokenExpiry: 1800  # 30分钟
   refreshTokenExpiry: 86400  # 24小时
 
+# 第三方登录配置
+thirdParty:
+  wechat:
+    appId: "your-wechat-appid"
+    appSecret: "your-wechat-appsecret"
+    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+  dingtalk:
+    appId: "your-dingtalk-appid"
+    appSecret: "your-dingtalk-appsecret"
+    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+  github:
+    clientId: "your-github-clientid"
+    clientSecret: "your-github-clientsecret"
+    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+
 log:
   provider: "console"
   level: "info"

@@ -518,7 +518,7 @@
 
 | 参数名 | 类型 | 必填 | 描述 |
 |-------|------|------|------|
-| provider | string | 是 | 第三方提供商，支持：wechat, dingtalk, github |
+| provider | string | 是 | 第三方提供商，支持：wechat, dingtalk, github, alipay |
 | code | string | 是 | 第三方授权码 |
 | state | string | 是 | 状态参数 |
 
@@ -546,6 +546,108 @@
 4. 生成令牌
 5. 创建会话
 6. 返回登录成功响应
+
+### 2.8.1 微信授权链接
+
+- **URL**: `/user/third-party-login/wechat/auth-url`
+- **方法**: GET
+- **描述**: 获取微信授权链接
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| redirect_uri | string | 是 | 重定向URI |
+| state | string | 否 | 状态参数，若不提供则自动生成 |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "获取成功",
+  "data": {
+    "auth_url": "https://open.weixin.qq.com/connect/qrconnect?appid=...",
+    "state": "123456"
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 生成或使用提供的state参数
+3. 生成微信授权链接
+4. 返回授权链接和state参数
+
+### 2.8.2 GitHub授权链接
+
+- **URL**: `/user/third-party-login/github/auth-url`
+- **方法**: GET
+- **描述**: 获取GitHub授权链接
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| redirect_uri | string | 是 | 重定向URI |
+| state | string | 否 | 状态参数，若不提供则自动生成 |
+| scope | string | 否 | 授权范围，默认为user:email |
+| code_challenge | string | 否 | PKCE code challenge |
+| code_challenge_method | string | 否 | PKCE code challenge method，默认为S256 |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "获取成功",
+  "data": {
+    "auth_url": "https://github.com/login/oauth/authorize?client_id=...",
+    "state": "123456"
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 生成或使用提供的state参数
+3. 生成GitHub授权链接
+4. 返回授权链接和state参数
+
+### 2.8.3 支付宝授权链接
+
+- **URL**: `/user/third-party-login/alipay/auth-url`
+- **方法**: GET
+- **描述**: 获取支付宝授权链接
+
+**请求参数**:
+
+| 参数名 | 类型 | 必填 | 描述 |
+|-------|------|------|------|
+| redirect_uri | string | 是 | 重定向URI |
+| state | string | 否 | 状态参数，若不提供则自动生成 |
+
+**响应**:
+
+```json
+{
+  "code": 10000,
+  "message": "获取成功",
+  "data": {
+    "auth_url": "https://openauth.alipay.com/oauth2/publicAppAuthorize.htm?app_id=...",
+    "state": "123456"
+  }
+}
+```
+
+**逻辑**:
+
+1. 验证请求参数
+2. 生成或使用提供的state参数
+3. 生成支付宝授权链接
+4. 返回授权链接和state参数
 
 ### 2.9 生物识别登录
 

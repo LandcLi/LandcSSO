@@ -63,6 +63,9 @@ func RegisterRoutes(r *gin.Engine) {
 		userGroup.POST("/send-verify-code", SendVerifyCode)
 		userGroup.POST("/verify-code-login", VerifyCodeLogin)
 		userGroup.POST("/third-party-login", ThirdPartyLogin)
+		userGroup.GET("/third-party-login/wechat/auth-url", GetWechatAuthURL)
+		userGroup.GET("/third-party-login/github/auth-url", GetGitHubAuthURL)
+		userGroup.GET("/third-party-login/alipay/auth-url", GetAlipayAuthURL)
 		userGroup.POST("/biometric-login", BiometricLogin)
 		userGroup.GET("/scan-code-login", StartScanCodeLogin)
 		userGroup.POST("/scan-code-login/verify", VerifyScanCodeLogin)
@@ -1509,5 +1512,150 @@ func GetAnomalyEvents(c *gin.Context) {
 		"code":    10000,
 		"message": "获取成功",
 		"data":    events,
+	})
+}
+
+// GetWechatAuthURL 获取微信授权链接
+func GetWechatAuthURL(c *gin.Context) {
+	// 获取redirect_uri参数
+	redirectURI := c.Query("redirect_uri")
+	if redirectURI == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "redirect_uri is required",
+		})
+		return
+	}
+
+	// 获取state参数，如果没有提供则生成一个随机的
+	state := c.Query("state")
+	if state == "" {
+		// 生成随机state
+		state = fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+
+	// 检查authService是否初始化
+	if authService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Service not initialized",
+		})
+		return
+	}
+
+	// 生成微信授权链接
+	authURL, err := authService.GenerateWechatAuthURL(redirectURI, state)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// 返回授权链接
+	c.JSON(http.StatusOK, gin.H{
+		"code":    10000,
+		"message": "获取成功",
+		"data": gin.H{
+			"auth_url": authURL,
+			"state":    state,
+		},
+	})
+}
+
+// GetGitHubAuthURL 获取GitHub授权链接
+func GetGitHubAuthURL(c *gin.Context) {
+	// 获取redirect_uri参数
+	redirectURI := c.Query("redirect_uri")
+	if redirectURI == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "redirect_uri is required",
+		})
+		return
+	}
+
+	// 获取state参数，如果没有提供则生成一个随机的
+	state := c.Query("state")
+	if state == "" {
+		// 生成随机state
+		state = fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+
+	// 获取scope参数
+	scope := c.Query("scope")
+
+	// 获取PKCE参数
+	codeChallenge := c.Query("code_challenge")
+	codeChallengeMethod := c.Query("code_challenge_method")
+
+	// 检查authService是否初始化
+	if authService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Service not initialized",
+		})
+		return
+	}
+
+	// 生成GitHub授权链接
+	authURL, err := authService.GenerateGitHubAuthURL(redirectURI, state, scope, codeChallenge, codeChallengeMethod)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// 返回授权链接
+	c.JSON(http.StatusOK, gin.H{
+		"code":    10000,
+		"message": "获取成功",
+		"data": gin.H{
+			"auth_url": authURL,
+			"state":    state,
+		},
+	})
+}
+
+// GetAlipayAuthURL 获取支付宝授权链接
+func GetAlipayAuthURL(c *gin.Context) {
+	// 获取redirect_uri参数
+	redirectURI := c.Query("redirect_uri")
+	if redirectURI == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "redirect_uri is required",
+		})
+		return
+	}
+
+	// 获取state参数，如果没有提供则生成一个随机的
+	state := c.Query("state")
+	if state == "" {
+		// 生成随机state
+		state = fmt.Sprintf("%d", time.Now().UnixNano())
+	}
+
+	// 检查authService是否初始化
+	if authService == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Service not initialized",
+		})
+		return
+	}
+
+	// 生成支付宝授权链接
+	authURL, err := authService.GenerateAlipayAuthURL(redirectURI, state)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	// 返回授权链接
+	c.JSON(http.StatusOK, gin.H{
+		"code":    10000,
+		"message": "获取成功",
+		"data": gin.H{
+			"auth_url": authURL,
+			"state":    state,
+		},
 	})
 }

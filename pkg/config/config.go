@@ -16,6 +16,43 @@ type Config struct {
 	MultiActive MultiActiveConfig `yaml:"multiActive"`
 	Mail        MailConfig        `yaml:"mail"`
 	SMS         SMSConfig         `yaml:"sms"`
+	ThirdParty  ThirdPartyConfig  `yaml:"thirdParty"`
+}
+
+// ThirdPartyConfig 第三方登录配置
+type ThirdPartyConfig struct {
+	Wechat   WechatConfig   `yaml:"wechat"`
+	Dingtalk DingtalkConfig `yaml:"dingtalk"`
+	Github   GithubConfig   `yaml:"github"`
+	Alipay   AlipayConfig   `yaml:"alipay"`
+}
+
+// WechatConfig 微信登录配置
+type WechatConfig struct {
+	AppId       string `yaml:"appId"`
+	AppSecret   string `yaml:"appSecret"`
+	RedirectUri string `yaml:"redirectUri"`
+}
+
+// DingtalkConfig 钉钉登录配置
+type DingtalkConfig struct {
+	AppId       string `yaml:"appId"`
+	AppSecret   string `yaml:"appSecret"`
+	RedirectUri string `yaml:"redirectUri"`
+}
+
+// GithubConfig GitHub登录配置
+type GithubConfig struct {
+	ClientId     string `yaml:"clientId"`
+	ClientSecret string `yaml:"clientSecret"`
+	RedirectUri  string `yaml:"redirectUri"`
+}
+
+// AlipayConfig 支付宝登录配置
+type AlipayConfig struct {
+	AppId       string `yaml:"appId"`
+	AppSecret   string `yaml:"appSecret"`
+	RedirectUri string `yaml:"redirectUri"`
 }
 
 // MailConfig 邮件配置
