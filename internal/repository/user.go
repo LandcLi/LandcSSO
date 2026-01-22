@@ -103,6 +103,16 @@ func (r *UserRepository) FindByUsername(username string) (*model.User, error) {
 	return &user, nil
 }
 
+// FindByUsernameFromDB 根据用户名从数据库直接查找用户，跳过缓存
+func (r *UserRepository) FindByUsernameFromDB(username string) (*model.User, error) {
+	var user model.User
+	err := r.db.Where("username = ?", username).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
 // FindByEmail 根据邮箱查找用户
 func (r *UserRepository) FindByEmail(email string) (*model.User, error) {
 	// 先从缓存中查找
@@ -250,6 +260,36 @@ func (r *UserRepository) Delete(id uint) error {
 	}
 
 	return r.db.Delete(&model.User{}, id).Error
+}
+
+// ClearUserCache 清除用户缓存
+func (r *UserRepository) ClearUserCache(user *model.User) error {
+	// 删除缓存
+	if r.redisClient != nil {
+		// 删除ID缓存
+		cacheKey := fmt.Sprintf("user:id:%d", user.ID)
+		r.redisClient.Del(context.Background(), cacheKey)
+
+		// 删除用户名缓存
+		if user.Username != "" {
+			cacheKey := fmt.Sprintf("user:username:%s", user.Username)
+			r.redisClient.Del(context.Background(), cacheKey)
+		}
+
+		// 删除邮箱缓存
+		if user.Email != "" {
+			cacheKey := fmt.Sprintf("user:email:%s", user.Email)
+			r.redisClient.Del(context.Background(), cacheKey)
+		}
+
+		// 删除手机号缓存
+		if user.Phone != "" {
+			cacheKey := fmt.Sprintf("user:phone:%s", user.Phone)
+			r.redisClient.Del(context.Background(), cacheKey)
+		}
+	}
+
+	return nil
 }
 
 // List 获取用户列表

@@ -787,8 +787,8 @@ func ChangePassword(c *gin.Context) {
 
 	// 解析请求参数
 	var req struct {
-		OldPassword string `json:"old_password" binding:"required"`
-		NewPassword string `json:"new_password" binding:"required,min=6"`
+		OldPassword string `json:"old_password" binding:"required,min=6,max=100"`
+		NewPassword string `json:"new_password" binding:"required,min=6,max=100"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {

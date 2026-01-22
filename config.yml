@@ -68,6 +68,10 @@ thirdParty:
     clientId: "your-github-clientid"
     clientSecret: "your-github-clientsecret"
     redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+  alipay:
+    appId: "your-alipay-appid"
+    appSecret: "your-alipay-appsecret"
+    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
 
 log:
   provider: "console"

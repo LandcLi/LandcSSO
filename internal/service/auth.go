@@ -98,8 +98,8 @@ func (s *AuthService) SetSessionService(sessionService *SessionService) {
 
 // Login 用户登录
 func (s *AuthService) Login(req *model.UserLoginRequest, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
-	// 查找用户
-	user, err := s.userRepo.FindByUsername(req.Username)
+	// 为了确保密码验证的准确性和安全性，每次登录都直接从数据库获取最新的密码哈希
+	user, err := s.userRepo.FindByUsernameFromDB(req.Username)
 	if err != nil {
 		return nil, errors.New("用户不存在")
 	}
@@ -2061,6 +2061,11 @@ func (s *AuthService) ChangePassword(userID uint, oldPassword, newPassword strin
 	_, err = s.userRepo.Update(user)
 	if err != nil {
 		return errors.New("修改密码失败")
+	}
+
+	// 清除用户缓存，确保下次登录时使用最新的密码哈希
+	if s.userRepo != nil {
+		_ = s.userRepo.ClearUserCache(user)
 	}
 
 	return nil
