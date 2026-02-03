@@ -6,13 +6,12 @@ import (
 	"fmt"
 	"log"
 
+	ginLog "github.com/LandcLi/LandcLogFace/adapter/gin"
 	"github.com/LandcLi/LandcSSO/internal/api"
 	"github.com/LandcLi/LandcSSO/internal/middleware"
 	"github.com/LandcLi/LandcSSO/internal/repository"
 	"github.com/LandcLi/LandcSSO/internal/service"
 	"github.com/LandcLi/LandcSSO/pkg/config"
-
-	"github.com/LandcLi/LandcLogFace"
 
 	"github.com/LandcLi/LandcSSO/pkg/logger"
 	"github.com/gin-gonic/gin"
@@ -76,7 +75,7 @@ func main() {
 
 	// 添加中间件
 	r.Use(middleware.Cors())
-	LandcLogFace.UseWithGin(r, logger.GetLogger())
+	ginLog.UseWithGin(r, logger.GetLogger())
 	r.Use(middleware.GinMiddleware())
 
 	// 注册路由

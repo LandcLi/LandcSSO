@@ -4,7 +4,8 @@ go 1.24.0
 
 require (
 	github.com/LandcLi/LandcCommonApi v0.0.0-20260116152221-0779acd06034
-	github.com/LandcLi/LandcLogFace v0.0.0-20260116151828-d3f377924b9a
+	github.com/LandcLi/LandcLogFace v0.0.0-20260128153627-e6b3f81a9aa0
+	github.com/LandcLi/LandcUserManager v0.0.0-20260131082543-891c855f51ad
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -59,7 +60,6 @@ require (
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
-	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
@@ -68,8 +68,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.38.0 // indirect
 	go.opentelemetry.io/otel/trace v1.38.0 // indirect
 	go.uber.org/mock v0.6.0 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.1 // indirect
 	golang.org/x/arch v0.23.0 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect

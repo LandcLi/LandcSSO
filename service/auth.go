@@ -1,0 +1,28 @@
+package service
+
+import (
+	"context"
+
+	"github.com/LandcLi/LandcSSO/model"
+)
+
+var authServiceImpl authService
+
+func RegisterAuthService(authService authService) {
+	authServiceImpl = authService
+}
+func GetAuthService() authService {
+	return authServiceImpl
+}
+
+type authService interface {
+	Login(ctx context.Context, userID uint, differentLocation bool, isNewDevice bool, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error)
+	ExchangeTempToken(ctx context.Context, tempToken string, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error)
+	ValidateToken(ctx context.Context, tokenString string, ip string, deviceFingerprint string) (*model.Claims, error)
+	RefreshToken(ctx context.Context, refreshToken string, ip string, deviceFingerprint string) (*model.TokenResponse, error)
+	GenerateTokens(ctx context.Context, userID uint, clientID string, ip string, deviceFingerprint string) (*model.TokenResponse, error)
+	RevokeToken(ctx context.Context, tokenString string) error
+	Logout(ctx context.Context, userID uint, ip string, deviceFingerprint string, userAgent string) error
+	GenerateAuthorizationCode(ctx context.Context, userID uint, clientID, redirectURI, scope, state, nonce, codeChallenge, codeChallengeMethod string) (string, error)
+	ValidateAuthorizationCode(ctx context.Context, code, clientID, redirectURI, codeVerifier string) (*model.AuthorizationCode, error)
+}
