@@ -84,6 +84,10 @@ func (a *alipayAdapter) RefreshAccessToken(ctx context.Context, accessToken, ref
 	return "", nil
 }
 
+func (a *alipayAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error) {
+	return "", "", nil
+}
+
 // -------------------------- 支付宝工厂实现（内部屏蔽Config解析） --------------------------
 type alipayFactory struct{}
 

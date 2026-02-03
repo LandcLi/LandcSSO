@@ -99,6 +99,10 @@ func (g *githubAdapter) RefreshAccessToken(ctx context.Context, accessToken, ref
 	return "", nil
 }
 
+func (g *githubAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error) {
+	return "", "", nil
+}
+
 // -------------------------- GitHub工厂实现（内部屏蔽Config解析） --------------------------
 type githubFactory struct{}
 

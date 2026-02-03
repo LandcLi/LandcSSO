@@ -30,6 +30,10 @@ func (d *dingtalkAdapter) RefreshAccessToken(ctx context.Context, accessToken, r
 	return "", nil
 }
 
+func (d *dingtalkAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error) {
+	return "", "", nil
+}
+
 // -------------------------- 钉钉工厂实现（内部屏蔽Config解析） --------------------------
 type dingtalkFactory struct{}
 

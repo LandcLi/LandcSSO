@@ -126,6 +126,49 @@ func (w *wechatAdapter) RefreshAccessToken(ctx context.Context, accessToken, ref
 	return refreshData.AccessToken, nil
 }
 
+func (w *wechatAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error) {
+	// 检查配置
+	if w.config == nil || w.config.AppId == "" || w.config.AppSecret == "" {
+		return "", "", errors.New("微信登录配置未设置")
+	}
+	// 验证redirect_uri
+	if err := w.ValidateRedirectURI(ctx, redirectURI); err != nil {
+		return "", "", err
+	}
+	// 构建获取access_token的URL
+	fetchURL := "https://api.weixin.qq.com/sns/oauth2/access_token"
+	fetchParams := fmt.Sprintf("appid=%s&secret=%s&code=%s&grant_type=authorization_code",
+		w.config.AppId, w.config.AppSecret, code)
+	// 发送请求
+	fetchResp, err := http.Get(fetchURL + "?" + fetchParams)
+	if err != nil {
+		logger.Errorf(ctx, "获取微信access_token失败: %v", err)
+		return "", "", errors.New("获取微信令牌失败")
+	}
+	defer fetchResp.Body.Close()
+	// 解析响应
+	var fetchData struct {
+		AccessToken  string `json:"access_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		RefreshToken string `json:"refresh_token"`
+		OpenID       string `json:"openid"`
+		Scope        string `json:"scope"`
+		Errcode      int    `json:"errcode"`
+		Errmsg       string `json:"errmsg"`
+	}
+	if err := json.NewDecoder(fetchResp.Body).Decode(&fetchData); err != nil {
+		logger.Errorf(ctx, "解析微信获取token响应失败: %v", err)
+		return "", "", errors.New("解析微信获取令牌响应失败")
+	}
+	if fetchData.Errcode != 0 {
+		logger.Errorf(ctx, "微信API错误: %d, %s", fetchData.Errcode, fetchData.Errmsg)
+		return "", "", errors.New("微信API错误: " + fetchData.Errmsg)
+	}
+	// 返回access_token和refresh_token
+	return fetchData.AccessToken, fetchData.RefreshToken, nil
+
+}
+
 // -------------------------- 微信工厂实现（内部屏蔽Config解析） --------------------------
 type wechatFactory struct{}
 
