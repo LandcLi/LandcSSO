@@ -21,6 +21,7 @@ type authApi interface {
 	Logout(ctx context.Context, req *v1.LogoutRequest) error
 	GenerateAuthorizationCode(ctx context.Context, req *v1.AuthorizationCodeRequest) (string, error)
 	ValidateAuthorizationCode(ctx context.Context, req *v1.ValidateAuthorizationCodeRequest) (*model.AuthorizationCode, error)
+	GetThirdPartyAuthURL(ctx context.Context, req *v1.ThirdPartyAuthURLRequest) (*v1.ThirdPartyAuthURLResponse, error)
 }
 
 func RegisterAuthController(controller authApi) {
@@ -154,6 +155,24 @@ func ValidateAuthorizationCode(c *gin.Context) {
 		return
 	}
 	resp, err := authControllerImpl.ValidateAuthorizationCode(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+func GetThirdPartyAuthURL(c *gin.Context) {
+	req := &v1.ThirdPartyAuthURLRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request",
+		})
+		return
+	}
+	resp, err := authControllerImpl.GetThirdPartyAuthURL(c.Request.Context(), req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),

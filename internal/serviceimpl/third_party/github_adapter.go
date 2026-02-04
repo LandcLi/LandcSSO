@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/LandcLi/LandcSSO/service"
 )
@@ -99,8 +102,73 @@ func (g *githubAdapter) RefreshAccessToken(ctx context.Context, accessToken, ref
 	return "", nil
 }
 
-func (g *githubAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error) {
-	return "", "", nil
+func (g *githubAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, string, error) {
+	// 检查配置
+	if g.config == nil || g.config.ClientId == "" || g.config.ClientSecret == "" {
+		return "", "", "", errors.New("GitHub登录配置未设置")
+	}
+
+	// 验证redirect_uri
+	if err := g.ValidateRedirectURI(ctx, redirectURI); err != nil {
+		return "", "", "", err
+	}
+
+	// 构建获取access_token的URL
+	fetchURL := "https://github.com/login/oauth/access_token"
+
+	// 构建请求体
+	requestBody := fmt.Sprintf("client_id=%s&client_secret=%s&code=%s&redirect_uri=%s",
+		g.config.ClientId, g.config.ClientSecret, code, redirectURI)
+
+	// 发送POST请求
+	resp, err := http.Post(fetchURL, "application/x-www-form-urlencoded", strings.NewReader(requestBody))
+	if err != nil {
+		return "", "", "", errors.New("获取GitHub令牌失败")
+	}
+	defer resp.Body.Close()
+
+	// 解析响应
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", "", "", errors.New("解析GitHub令牌响应失败")
+	}
+
+	// GitHub返回的是form格式的数据，需要解析
+	values, err := url.ParseQuery(string(body))
+	if err != nil {
+		return "", "", "", errors.New("解析GitHub令牌响应失败")
+	}
+
+	accessToken := values.Get("access_token")
+	if accessToken == "" {
+		return "", "", "", errors.New("获取GitHub令牌失败")
+	}
+
+	// 获取用户信息（GitHub没有refresh_token，所以refresh_token为空）
+	userInfoURL := "https://api.github.com/user"
+	req, _ := http.NewRequest("GET", userInfoURL, nil)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Accept", "application/json")
+
+	userResp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", "", "", errors.New("获取GitHub用户信息失败")
+	}
+	defer userResp.Body.Close()
+
+	var userInfo struct {
+		ID    int64  `json:"id"`
+		Login string `json:"login"`
+		Name  string `json:"name"`
+		Email string `json:"email"`
+	}
+
+	if err := json.NewDecoder(userResp.Body).Decode(&userInfo); err != nil {
+		return "", "", "", errors.New("解析GitHub用户信息失败")
+	}
+
+	// 返回access_token、refresh_token（GitHub没有refresh_token）和openId（使用用户ID）
+	return accessToken, "", fmt.Sprintf("%d", userInfo.ID), nil
 }
 
 // -------------------------- GitHub工厂实现（内部屏蔽Config解析） --------------------------

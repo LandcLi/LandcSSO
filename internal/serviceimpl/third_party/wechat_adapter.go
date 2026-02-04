@@ -126,14 +126,14 @@ func (w *wechatAdapter) RefreshAccessToken(ctx context.Context, accessToken, ref
 	return refreshData.AccessToken, nil
 }
 
-func (w *wechatAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error) {
+func (w *wechatAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, string, error) {
 	// 检查配置
 	if w.config == nil || w.config.AppId == "" || w.config.AppSecret == "" {
-		return "", "", errors.New("微信登录配置未设置")
+		return "", "", "", errors.New("微信登录配置未设置")
 	}
 	// 验证redirect_uri
 	if err := w.ValidateRedirectURI(ctx, redirectURI); err != nil {
-		return "", "", err
+		return "", "", "", err
 	}
 	// 构建获取access_token的URL
 	fetchURL := "https://api.weixin.qq.com/sns/oauth2/access_token"
@@ -143,7 +143,7 @@ func (w *wechatAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, cod
 	fetchResp, err := http.Get(fetchURL + "?" + fetchParams)
 	if err != nil {
 		logger.Errorf(ctx, "获取微信access_token失败: %v", err)
-		return "", "", errors.New("获取微信令牌失败")
+		return "", "", "", errors.New("获取微信令牌失败")
 	}
 	defer fetchResp.Body.Close()
 	// 解析响应
@@ -158,15 +158,14 @@ func (w *wechatAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, cod
 	}
 	if err := json.NewDecoder(fetchResp.Body).Decode(&fetchData); err != nil {
 		logger.Errorf(ctx, "解析微信获取token响应失败: %v", err)
-		return "", "", errors.New("解析微信获取令牌响应失败")
+		return "", "", "", errors.New("解析微信获取令牌响应失败")
 	}
 	if fetchData.Errcode != 0 {
 		logger.Errorf(ctx, "微信API错误: %d, %s", fetchData.Errcode, fetchData.Errmsg)
-		return "", "", errors.New("微信API错误: " + fetchData.Errmsg)
+		return "", "", "", errors.New("微信API错误: " + fetchData.Errmsg)
 	}
-	// 返回access_token和refresh_token
-	return fetchData.AccessToken, fetchData.RefreshToken, nil
-
+	// 返回access_token、refresh_token和openId
+	return fetchData.AccessToken, fetchData.RefreshToken, fetchData.OpenID, nil
 }
 
 // -------------------------- 微信工厂实现（内部屏蔽Config解析） --------------------------

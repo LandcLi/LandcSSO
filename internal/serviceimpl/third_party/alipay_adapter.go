@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
+	"strings"
+	"time"
 
 	"github.com/LandcLi/LandcSSO/service"
 )
@@ -84,8 +87,52 @@ func (a *alipayAdapter) RefreshAccessToken(ctx context.Context, accessToken, ref
 	return "", nil
 }
 
-func (a *alipayAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error) {
-	return "", "", nil
+func (a *alipayAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, string, error) {
+	// 检查配置
+	if a.config == nil || a.config.AppId == "" || a.config.AppSecret == "" {
+		return "", "", "", errors.New("支付宝登录配置未设置")
+	}
+
+	// 验证redirect_uri
+	if err := a.ValidateRedirectURI(ctx, redirectURI); err != nil {
+		return "", "", "", err
+	}
+
+	// 构建获取access_token的URL
+	fetchURL := "https://openapi.alipay.com/gateway.do"
+
+	// 构建参数
+	fetchParams := fmt.Sprintf("app_id=%s&method=alipay.system.oauth2.token&grant_type=authorization_code&code=%s&charset=UTF-8&sign_type=RSA2&timestamp=%s&version=1.0",
+		a.config.AppId, code, fmt.Sprintf("%d", time.Now().Unix()))
+
+	// 发送POST请求
+	resp, err := http.Post(fetchURL, "application/x-www-form-urlencoded", strings.NewReader(fetchParams))
+	if err != nil {
+		return "", "", "", errors.New("获取支付宝令牌失败")
+	}
+	defer resp.Body.Close()
+
+	// 解析响应
+	var fetchData struct {
+		AccessToken  string `json:"access_token"`
+		ExpiresIn    int    `json:"expires_in"`
+		RefreshToken string `json:"refresh_token"`
+		UserID       string `json:"user_id"`
+		AlipayUserID string `json:"alipay_user_id"`
+		Error        string `json:"error"`
+		ErrorDesc    string `json:"error_description"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&fetchData); err != nil {
+		return "", "", "", errors.New("解析支付宝令牌响应失败")
+	}
+
+	if fetchData.Error != "" {
+		return "", "", "", errors.New("支付宝API错误: " + fetchData.ErrorDesc)
+	}
+
+	// 返回access_token、refresh_token和openId（使用user_id）
+	return fetchData.AccessToken, fetchData.RefreshToken, fetchData.AlipayUserID, nil
 }
 
 // -------------------------- 支付宝工厂实现（内部屏蔽Config解析） --------------------------

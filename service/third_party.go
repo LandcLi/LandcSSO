@@ -12,7 +12,7 @@ type ThirdPartyAdapter interface {
 	ValidateRedirectURI(ctx context.Context, redirectURI string) error
 	GenerateAuthURL(ctx context.Context, params map[string]string) (string, error)
 	RefreshAccessToken(ctx context.Context, accessToken, refreshToken string) (string, error)
-	FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error)
+	FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, string, error)
 }
 
 // AdapterFactory 适配器工厂接口（屏蔽不同Config的创建逻辑）

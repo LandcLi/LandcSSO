@@ -3,6 +3,10 @@ package third_party
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/LandcLi/LandcSSO/service"
 )
@@ -30,8 +34,46 @@ func (d *dingtalkAdapter) RefreshAccessToken(ctx context.Context, accessToken, r
 	return "", nil
 }
 
-func (d *dingtalkAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, error) {
-	return "", "", nil
+func (d *dingtalkAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, string, error) {
+	// 检查配置
+	if d.config == nil || d.config.AppId == "" || d.config.AppSecret == "" {
+		return "", "", "", errors.New("钉钉登录配置未设置")
+	}
+
+	// 构建获取access_token的URL
+	fetchURL := "https://api.dingtalk.com/v1.0/oauth2/userAccessToken"
+
+	// 构建请求体
+	requestBody := fmt.Sprintf(`{"clientId":"%s","clientSecret":"%s","code":"%s","grantType":"authorization_code"}`,
+		d.config.AppId, d.config.AppSecret, code)
+
+	// 发送POST请求
+	resp, err := http.Post(fetchURL, "application/json", strings.NewReader(requestBody))
+	if err != nil {
+		return "", "", "", errors.New("获取钉钉令牌失败")
+	}
+	defer resp.Body.Close()
+
+	// 解析响应
+	var fetchData struct {
+		AccessToken  string `json:"accessToken"`
+		ExpiresIn    int    `json:"expiresIn"`
+		RefreshToken string `json:"refreshToken"`
+		OpenID       string `json:"openId"`
+		Error        string `json:"error"`
+		ErrorDesc    string `json:"error_description"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&fetchData); err != nil {
+		return "", "", "", errors.New("解析钉钉令牌响应失败")
+	}
+
+	if fetchData.Error != "" {
+		return "", "", "", errors.New("钉钉API错误: " + fetchData.ErrorDesc)
+	}
+
+	// 返回access_token、refresh_token和openId
+	return fetchData.AccessToken, fetchData.RefreshToken, fetchData.OpenID, nil
 }
 
 // -------------------------- 钉钉工厂实现（内部屏蔽Config解析） --------------------------
