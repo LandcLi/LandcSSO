@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/service"
@@ -15,11 +16,19 @@ import (
 
 type sessionServiceImpl struct {
 	redisClient redis.UniversalClient
+	// In-memory fallback when Redis is not available
+	memStore   map[string][]byte
+	memMu      sync.RWMutex
+	useMemory  bool
 }
 
 func NewSessionServiceImpl() *sessionServiceImpl {
+	client := config.GetRedis()
+	useMemory := client == nil
 	return &sessionServiceImpl{
-		redisClient: config.GetRedis(),
+		redisClient: client,
+		memStore:    make(map[string][]byte),
+		useMemory:   useMemory,
 	}
 }
 
@@ -47,10 +56,16 @@ func (s *sessionServiceImpl) CreateSession(userID uint, username string, data ma
 		return "", err
 	}
 
-	err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
-	if err != nil {
-		logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
-		return "", err
+	if s.useMemory {
+		s.memMu.Lock()
+		s.memStore[sessionID] = sessionJSON
+		s.memMu.Unlock()
+	} else {
+		err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
+		if err != nil {
+			logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
+			return "", err
+		}
 	}
 
 	return sessionID, nil
@@ -58,14 +73,29 @@ func (s *sessionServiceImpl) CreateSession(userID uint, username string, data ma
 
 func (s *sessionServiceImpl) GetSession(sessionID string) (*service.Session, error) {
 	ctx := context.Background()
-	sessionJSON, err := s.redisClient.Get(ctx, sessionID).Result()
-	if err != nil {
-		logger.Errorf(ctx, "从Redis获取会话失败: %v", err)
-		return nil, err
+
+	var sessionJSON []byte
+	var err error
+
+	if s.useMemory {
+		s.memMu.RLock()
+		data, ok := s.memStore[sessionID]
+		s.memMu.RUnlock()
+		if !ok {
+			return nil, errors.New("会话不存在")
+		}
+		sessionJSON = data
+	} else {
+		result, e := s.redisClient.Get(ctx, sessionID).Result()
+		if e != nil {
+			logger.Errorf(ctx, "从Redis获取会话失败: %v", e)
+			return nil, e
+		}
+		sessionJSON = []byte(result)
 	}
 
 	var session service.Session
-	err = json.Unmarshal([]byte(sessionJSON), &session)
+	err = json.Unmarshal(sessionJSON, &session)
 	if err != nil {
 		logger.Errorf(ctx, "反序列化会话失败: %v", err)
 		return nil, err
@@ -95,10 +125,16 @@ func (s *sessionServiceImpl) UpdateSession(sessionID string, data map[string]int
 		return err
 	}
 
-	err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
-	if err != nil {
-		logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
-		return err
+	if s.useMemory {
+		s.memMu.Lock()
+		s.memStore[sessionID] = sessionJSON
+		s.memMu.Unlock()
+	} else {
+		err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
+		if err != nil {
+			logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
+			return err
+		}
 	}
 
 	return nil
@@ -106,10 +142,17 @@ func (s *sessionServiceImpl) UpdateSession(sessionID string, data map[string]int
 
 func (s *sessionServiceImpl) DeleteSession(sessionID string) error {
 	ctx := context.Background()
-	err := s.redisClient.Del(ctx, sessionID).Err()
-	if err != nil {
-		logger.Errorf(ctx, "从Redis删除会话失败: %v", err)
-		return err
+
+	if s.useMemory {
+		s.memMu.Lock()
+		delete(s.memStore, sessionID)
+		s.memMu.Unlock()
+	} else {
+		err := s.redisClient.Del(ctx, sessionID).Err()
+		if err != nil {
+			logger.Errorf(ctx, "从Redis删除会话失败: %v", err)
+			return err
+		}
 	}
 
 	return nil
@@ -117,17 +160,29 @@ func (s *sessionServiceImpl) DeleteSession(sessionID string) error {
 
 func (s *sessionServiceImpl) DeleteUserSessions(userID uint) error {
 	ctx := context.Background()
-	keys, err := s.redisClient.Keys(ctx, fmt.Sprintf("session:%d:*", userID)).Result()
-	if err != nil {
-		logger.Errorf(ctx, "查找用户会话失败: %v", err)
-		return err
-	}
 
-	if len(keys) > 0 {
-		err = s.redisClient.Del(ctx, keys...).Err()
+	if s.useMemory {
+		prefix := fmt.Sprintf("session:%d:", userID)
+		s.memMu.Lock()
+		for key := range s.memStore {
+			if len(key) >= len(prefix) && key[:len(prefix)] == prefix {
+				delete(s.memStore, key)
+			}
+		}
+		s.memMu.Unlock()
+	} else {
+		keys, err := s.redisClient.Keys(ctx, fmt.Sprintf("session:%d:*", userID)).Result()
 		if err != nil {
-			logger.Errorf(ctx, "删除用户会话失败: %v", err)
+			logger.Errorf(ctx, "查找用户会话失败: %v", err)
 			return err
+		}
+
+		if len(keys) > 0 {
+			err = s.redisClient.Del(ctx, keys...).Err()
+			if err != nil {
+				logger.Errorf(ctx, "删除用户会话失败: %v", err)
+				return err
+			}
 		}
 	}
 
@@ -149,10 +204,16 @@ func (s *sessionServiceImpl) ExtendSession(sessionID string) error {
 		return err
 	}
 
-	err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
-	if err != nil {
-		logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
-		return err
+	if s.useMemory {
+		s.memMu.Lock()
+		s.memStore[sessionID] = sessionJSON
+		s.memMu.Unlock()
+	} else {
+		err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
+		if err != nil {
+			logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
+			return err
+		}
 	}
 
 	return nil

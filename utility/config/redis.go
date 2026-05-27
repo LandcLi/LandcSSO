@@ -15,8 +15,14 @@ var RedisClient redis.UniversalClient
 // RedisSyncClient Redis同步客户端（用于跨数据中心同步）
 var RedisSyncClient redis.UniversalClient
 
-// InitRedis 初始化Redis连接
+// InitRedis 初始化Redis连接 (optional: if Host is empty, Redis will not be initialized)
 func InitRedis(cfg *RedisConfig, multiActiveCfg *MultiActiveConfig) error {
+	// Skip if Redis is not configured
+	if cfg == nil || (cfg.Host == "" && !cfg.ClusterEnabled && !cfg.SentinelEnabled) {
+		facade.GetLogger().Info("Redis未配置，跳过初始化（将使用内存存储会话）")
+		return nil
+	}
+
 	// 根据配置创建Redis客户端
 	var client redis.UniversalClient
 	if cfg.ClusterEnabled {

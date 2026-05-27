@@ -55,11 +55,10 @@ func main() {
 		return
 	}
 
-	// 初始化Redis连接
+	// 初始化Redis连接（可选，不配置时使用内存会话）
 	err = config.InitRedis(&cfg.Redis, &cfg.MultiActive)
 	if err != nil {
-		logger.Errorf(ctx, "初始化Redis失败: %v", err)
-		return
+		logger.Errorf(ctx, "初始化Redis失败: %v，将使用内存存储会话", err)
 	}
 
 	// 创建Gin引擎
