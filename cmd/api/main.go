@@ -25,6 +25,8 @@ import (
 	"github.com/LandcLi/LandcSSO/utility/logger"
 	ginLog "github.com/LandcLi/landc-go/log/adapter/gin"
 
+	// LandcUserManager - local mode: InitLUMWithConfigAndGin triggers internal init() to register controllers
+	// To switch to remote mode: remove this import and use sdk.NewSDK() + userapi.RegisterUserController() instead
 	landcusermanager "github.com/LandcLi/LandcUserManager"
 	lumConfig "github.com/LandcLi/LandcUserManager/utility/config"
 
@@ -69,7 +71,9 @@ func main() {
 	r.Use(middleware.GinMiddleware())
 	r.Use(middleware.RequestLogger())
 
-	// 初始化 LandcUserManager（共享同一个 Gin 引擎）
+	// LandcUserManager - local mode
+	// Initializes UserManager controllers and registers user routes into the shared Gin engine.
+	// The internal init() registers local controller implementations for userapi.GetUserController().
 	lumCfg := &lumConfig.Config{
 		Server: lumConfig.ServerConfig{
 			GinMode:          cfg.Server.Mode,
