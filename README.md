@@ -23,8 +23,9 @@ LandcSSO是一个基于Go语言开发的单点登录（SSO）系统，支持OAut
 - **数据存储**：MySQL + Redis
 - **认证协议**：OAuth 2.0 + OpenID Connect
 - **安全**：JWT + RSA + HTTPS
-- **日志**：LandcLogFace
-- **API响应**：LandcCommonApi
+- **日志**：landc-go/log
+- **API响应**：landc-go/api
+- **框架**：landc-go/mvc（DI / Gateway）
 
 ## 目录结构
 
@@ -32,20 +33,22 @@ LandcSSO是一个基于Go语言开发的单点登录（SSO）系统，支持OAut
 LandcSSO/
 ├── cmd/              # 命令行入口
 │   └── api/          # API服务入口
+├── api/              # API路由和控制器接口
+│   └── auth/         # 认证接口定义
 ├── internal/         # 内部包
-│   ├── api/          # API路由和控制器
-│   ├── service/      # 业务逻辑
-│   ├── model/        # 数据模型
-│   ├── repository/   # 数据访问
-│   ├── middleware/   # 中间件
-├── pkg/              # 公共包
+│   ├── controller/   # 控制器实现
+│   ├── serviceimpl/  # 服务实现
+│   └── daoimpl/      # 数据访问实现
+├── service/          # 服务层接口
+├── dao/              # 数据访问层接口
+├── model/            # 数据模型
+├── middleware/       # 中间件
+├── utility/          # 工具包
 │   ├── sdk/          # 服务提供方SDK
 │   ├── config/       # 配置管理
 │   └── logger/       # 日志管理
 ├── tests/            # 测试文件
-├── docs/             # 文档
 ├── sqls/             # SQL脚本
-├── steps/            # 步骤记录
 ├── config.yml        # 配置文件
 ├── go.mod            # 依赖管理
 └── README.md         # 项目说明
