@@ -24,3 +24,8 @@ type ValidateAuthorizationCodeRequest struct {
 	RedirectURI  string `json:"redirect_uri" binding:"required"`
 	CodeVerifier string `json:"code_verifier"`
 }
+
+// GenerateAuthCodeResponse 生成授权码响应结构
+type GenerateAuthCodeResponse struct {
+	Code string `json:"code"`
+}

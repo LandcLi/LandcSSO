@@ -2,24 +2,21 @@ package auth
 
 import (
 	"context"
-	"net/http"
 
 	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
 	"github.com/LandcLi/LandcSSO/model"
+	"github.com/LandcLi/landc-go/mvc/pkg/di"
 	"github.com/gin-gonic/gin"
 )
 
-var authControllerImpl authApi
-
-// todo 针对第三方登录，还需要增加获取认证链接的接口，通过code获取access_token、refresh_token的接口
-// 同时，需要增加一个接口，用于刷新access_token，并且SSO系统要维护refresh_token和access_token
-type authApi interface {
+// AuthController defines the authentication controller interface.
+type AuthController interface {
 	Login(ctx context.Context, req *v1.LoginRequest) (*v1.TokenResponse, error)
 	ExchangeTempToken(ctx context.Context, req *v1.ExchangeTempTokenRequest) (*v1.TokenResponse, error)
 	RefreshToken(ctx context.Context, req *v1.RefreshTokenRequest) (*v1.TokenResponse, error)
 	RevokeToken(ctx context.Context, req *v1.RevokeTokenRequest) error
 	Logout(ctx context.Context, req *v1.LogoutRequest) error
-	GenerateAuthorizationCode(ctx context.Context, req *v1.AuthorizationCodeRequest) (string, error)
+	GenerateAuthorizationCode(ctx context.Context, req *v1.AuthorizationCodeRequest) (*v1.GenerateAuthCodeResponse, error)
 	ValidateAuthorizationCode(ctx context.Context, req *v1.ValidateAuthorizationCodeRequest) (*model.AuthorizationCode, error)
 	GetThirdPartyAuthURL(ctx context.Context, req *v1.ThirdPartyAuthURLRequest) (*v1.ThirdPartyAuthURLResponse, error)
 	Authorize(ctx context.Context, req *v1.AuthorizationCodeRequest) (*v1.AuthorizationCodeResponse, error)
@@ -28,232 +25,39 @@ type authApi interface {
 	GetJWKS(ctx context.Context) (*v1.JWKSResponse, error)
 }
 
-func RegisterAuthController(controller authApi) {
-	authControllerImpl = controller
+// RequestInfoEnricher extracts IP, DeviceFingerprint, UserAgent from gin.Context into context.
+func RequestInfoEnricher(ctx context.Context, c *gin.Context) context.Context {
+	ctx = context.WithValue(ctx, "IP", c.ClientIP())
+	ctx = context.WithValue(ctx, "DeviceFingerprint", c.GetHeader("X-Device-Fingerprint"))
+	ctx = context.WithValue(ctx, "UserAgent", c.GetHeader("User-Agent"))
+	return ctx
 }
 
-func GetAuthController() authApi {
-	return authControllerImpl
+// AuthRoutes maps controller methods to HTTP endpoints.
+var AuthRoutes = di.Routes{
+	"Login":                    {Method: "POST", Path: "/auth/login", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
+	"ExchangeTempToken":        {Method: "POST", Path: "/auth/exchange-temp-token", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
+	"RefreshToken":             {Method: "POST", Path: "/auth/refresh-token", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
+	"RevokeToken":              {Method: "POST", Path: "/auth/revoke-token"},
+	"Logout":                   {Method: "POST", Path: "/auth/logout", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
+	"GenerateAuthorizationCode": {Method: "POST", Path: "/auth/generate-auth-code", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
+	"ValidateAuthorizationCode": {Method: "POST", Path: "/auth/verify-auth-code"},
+	"GetThirdPartyAuthURL":     {Method: "POST", Path: "/auth/third-party-login"},
+	"Authorize":                {Method: "POST", Path: "/auth/authorize", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
+	"Token":                    {Method: "POST", Path: "/auth/token", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
+	"Introspect":               {Method: "POST", Path: "/auth/introspect", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
+	"GetJWKS":                  {Method: "GET", Path: "/auth/jwks"},
 }
 
-func Login(c *gin.Context) {
-	req := &v1.LoginRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := authControllerImpl.Login(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
+// AuthGateway is the service gateway for authentication.
+var AuthGateway = di.NewGateway[AuthController]("auth.controller", AuthRoutes)
+
+// GetAuthController returns the registered AuthController implementation.
+func GetAuthController() AuthController {
+	return AuthGateway.Get()
 }
 
-func ExchangeTempToken(c *gin.Context) {
-	req := &v1.ExchangeTempTokenRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := authControllerImpl.ExchangeTempToken(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-
-func RefreshToken(c *gin.Context) {
-	req := &v1.RefreshTokenRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := authControllerImpl.RefreshToken(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-
-func RevokeToken(c *gin.Context) {
-	req := &v1.RevokeTokenRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	err := authControllerImpl.RevokeToken(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Token revoked successfully",
-	})
-}
-
-func Logout(c *gin.Context) {
-	req := &v1.LogoutRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	err := authControllerImpl.Logout(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Logout successful",
-	})
-}
-
-func GenerateAuthorizationCode(c *gin.Context) {
-	req := &v1.AuthorizationCodeRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	code, err := authControllerImpl.GenerateAuthorizationCode(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"code": code,
-	})
-}
-
-func ValidateAuthorizationCode(c *gin.Context) {
-	req := &v1.ValidateAuthorizationCodeRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := authControllerImpl.ValidateAuthorizationCode(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-
-func GetThirdPartyAuthURL(c *gin.Context) {
-	req := &v1.ThirdPartyAuthURLRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := authControllerImpl.GetThirdPartyAuthURL(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-func Authorize(c *gin.Context) {
-	req := &v1.AuthorizationCodeRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := authControllerImpl.Authorize(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-func Token(c *gin.Context) {
-	req := &v1.TokenRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	ip := c.ClientIP()
-	deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
-	userAgent := c.GetHeader("User-Agent")
-	ctx := context.WithValue(c.Request.Context(), "IP", ip)
-	ctx = context.WithValue(ctx, "DeviceFingerprint", deviceFingerprint)
-	ctx = context.WithValue(ctx, "UserAgent", userAgent)
-	resp, err := authControllerImpl.Token(ctx, req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-func GetJWKS(c *gin.Context) {
-	resp, err := authControllerImpl.GetJWKS(c.Request.Context())
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-
-func Introspect(c *gin.Context) {
-	req := &v1.IntrospectRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	ip := c.ClientIP()
-	deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
-	ctx := context.WithValue(c.Request.Context(), "IP", ip)
-	ctx = context.WithValue(ctx, "DeviceFingerprint", deviceFingerprint)
-	resp, err := authControllerImpl.Introspect(ctx, req)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
+// RegisterAuthController registers an AuthController implementation.
+func RegisterAuthController(impl AuthController) {
+	AuthGateway.Provide(impl)
 }

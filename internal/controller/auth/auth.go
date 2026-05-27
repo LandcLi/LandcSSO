@@ -11,12 +11,11 @@ import (
 	"github.com/LandcLi/LandcSSO/service"
 	userapi "github.com/LandcLi/LandcUserManager/api/user"
 	userv1api "github.com/LandcLi/LandcUserManager/api/user/v1"
+	"github.com/LandcLi/landc-go/mvc/pkg/di"
 )
 
 func init() {
-	if authApi.GetAuthController() == nil {
-		authApi.RegisterAuthController(NewAuthController())
-	}
+	di.Provide[authApi.AuthController]("auth.controller", NewAuthController())
 }
 
 type authController struct {
@@ -210,12 +209,16 @@ func (c *authController) Logout(ctx context.Context, req *v1.LogoutRequest) erro
 	return service.GetAuthService().Logout(ctx, claims.UserID, ip, deviceFingerprint, userAgent)
 }
 
-func (c *authController) GenerateAuthorizationCode(ctx context.Context, req *v1.AuthorizationCodeRequest) (string, error) {
+func (c *authController) GenerateAuthorizationCode(ctx context.Context, req *v1.AuthorizationCodeRequest) (*v1.GenerateAuthCodeResponse, error) {
 	// 从上下文获取用户ID
 	userID := ctx.Value("UserID").(uint)
 
 	// 调用认证服务生成授权码
-	return service.GetAuthService().GenerateAuthorizationCode(ctx, userID, req.ClientID, req.RedirectURI, req.Scope, req.State, req.Nonce, req.CodeChallenge, req.CodeChallengeMethod)
+	code, err := service.GetAuthService().GenerateAuthorizationCode(ctx, userID, req.ClientID, req.RedirectURI, req.Scope, req.State, req.Nonce, req.CodeChallenge, req.CodeChallengeMethod)
+	if err != nil {
+		return nil, err
+	}
+	return &v1.GenerateAuthCodeResponse{Code: code}, nil
 }
 
 func (c *authController) ValidateAuthorizationCode(ctx context.Context, req *v1.ValidateAuthorizationCodeRequest) (*model.AuthorizationCode, error) {

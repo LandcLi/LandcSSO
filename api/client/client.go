@@ -2,99 +2,36 @@ package client
 
 import (
 	"context"
-	"net/http"
 
 	v1 "github.com/LandcLi/LandcSSO/api/client/v1"
-	"github.com/gin-gonic/gin"
+	"github.com/LandcLi/landc-go/mvc/pkg/di"
 )
 
-var clientControllerImpl clientApi
-
-type clientApi interface {
+// ClientController defines the OAuth client management interface.
+type ClientController interface {
 	ClientCreate(ctx context.Context, req *v1.ClientCreateRequest) (*v1.ClientResponse, error)
 	ClientDelete(ctx context.Context, req *v1.ClientDeleteRequest) error
 	ClientList(ctx context.Context, req *v1.ClientListRequest) (*v1.ClientListResponse, error)
 	ClientUpdate(ctx context.Context, req *v1.ClientUpdateRequest) (*v1.ClientResponse, error)
 }
 
-func RegisterClientController(controller clientApi) {
-	clientControllerImpl = controller
+// ClientRoutes maps controller methods to HTTP endpoints.
+var ClientRoutes = di.Routes{
+	"ClientCreate": {Method: "POST", Path: "/client/create"},
+	"ClientDelete": {Method: "DELETE", Path: "/client/delete"},
+	"ClientList":   {Method: "GET", Path: "/client/list"},
+	"ClientUpdate": {Method: "PUT", Path: "/client/update"},
 }
 
-func GetClientController() clientApi {
-	return clientControllerImpl
+// ClientGateway is the service gateway for client management.
+var ClientGateway = di.NewGateway[ClientController]("client.controller", ClientRoutes)
+
+// GetClientController returns the registered ClientController implementation.
+func GetClientController() ClientController {
+	return ClientGateway.Get()
 }
 
-func ClientCreate(c *gin.Context) {
-	req := &v1.ClientCreateRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := clientControllerImpl.ClientCreate(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-
-func ClientDelete(c *gin.Context) {
-	req := &v1.ClientDeleteRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	err := clientControllerImpl.ClientDelete(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Client deleted successfully",
-	})
-}
-
-func ClientList(c *gin.Context) {
-	req := &v1.ClientListRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := clientControllerImpl.ClientList(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-
-func ClientUpdate(c *gin.Context) {
-	req := &v1.ClientUpdateRequest{}
-	if err := c.ShouldBindJSON(req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request",
-		})
-		return
-	}
-	resp, err := clientControllerImpl.ClientUpdate(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-	c.JSON(http.StatusOK, resp)
+// RegisterClientController registers a ClientController implementation.
+func RegisterClientController(impl ClientController) {
+	ClientGateway.Provide(impl)
 }
