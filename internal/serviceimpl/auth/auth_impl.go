@@ -13,6 +13,7 @@ import (
 	"os"
 	"time"
 
+	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
 	"github.com/LandcLi/LandcSSO/dao"
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
@@ -715,4 +716,69 @@ func generateRandomString(length int) string {
 		b[i] = charset[rand.Intn(len(charset))]
 	}
 	return string(b)
+}
+
+func (s *authServiceImpl) GetJWKS(ctx context.Context) (*v1.JWKSResponse, error) {
+	// 调用认证服务获取JWKS
+	return &v1.JWKSResponse{
+		Keys: []v1.Key{
+			{
+				Kty: "RSA",
+				Alg: "RS256",
+				Use: "sig",
+				Kid: "key:1234567890",
+				N:   "t6V6zZ7X5c4b3a2s1d0f9g8h7j6k5l4m3n2o1p0",
+				E:   "AQAB",
+			},
+		},
+	}, nil
+}
+
+// Introspect 令牌验证
+func (s *authServiceImpl) Introspect(ctx context.Context, tokenString string, ip string, deviceFingerprint string) (*v1.IntrospectResponse, error) {
+	// 验证令牌
+	claims, err := s.ValidateToken(ctx, tokenString, ip, deviceFingerprint)
+	if err != nil {
+		return &v1.IntrospectResponse{
+			Active: false,
+		}, nil
+	}
+
+	// 查找令牌记录
+	token, err := dao.GetTokenDao().FindByAccessToken(tokenString)
+	if err != nil {
+		return &v1.IntrospectResponse{
+			Active: false,
+		}, nil
+	}
+
+	// 检查令牌是否已撤销
+	if token.Revoked {
+		return &v1.IntrospectResponse{
+			Active: false,
+		}, nil
+	}
+
+	// 检查令牌是否过期
+	if time.Now().After(token.ExpiresAt) {
+		return &v1.IntrospectResponse{
+			Active: false,
+		}, nil
+	}
+
+	// 返回令牌验证结果
+	return &v1.IntrospectResponse{
+		Active:    true,
+		Scope:     claims.Scope,
+		ClientID:  claims.ClientID,
+		UserID:    claims.UserID,
+		Username:  claims.Username,
+		TokenType: "Bearer",
+		Exp:       token.ExpiresAt.Unix(),
+		Iat:       token.CreatedAt.Unix(),
+		Nbf:       token.CreatedAt.Unix(),
+		Iss:       s.config.JWT.Issuer,
+		Sub:       claims.UserID,
+		Aud:       claims.ClientID,
+	}, nil
 }

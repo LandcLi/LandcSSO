@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 
+	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
 	"github.com/LandcLi/LandcSSO/model"
 )
 
@@ -25,4 +26,6 @@ type authService interface {
 	Logout(ctx context.Context, userID uint, ip string, deviceFingerprint string, userAgent string) error
 	GenerateAuthorizationCode(ctx context.Context, userID uint, clientID, redirectURI, scope, state, nonce, codeChallenge, codeChallengeMethod string) (string, error)
 	ValidateAuthorizationCode(ctx context.Context, code, clientID, redirectURI, codeVerifier string) (*model.AuthorizationCode, error)
+	Introspect(ctx context.Context, tokenString string, ip string, deviceFingerprint string) (*v1.IntrospectResponse, error)
+	GetJWKS(ctx context.Context) (*v1.JWKSResponse, error)
 }

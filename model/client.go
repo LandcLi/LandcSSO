@@ -3,6 +3,8 @@ package model
 import (
 	"encoding/json"
 	"time"
+
+	v1 "github.com/LandcLi/LandcSSO/api/client/v1"
 )
 
 // Client 客户端模型
@@ -26,64 +28,8 @@ func (Client) TableName() string {
 	return "clients"
 }
 
-// ClientResponse 客户端响应
-type ClientResponse struct {
-	ID                      uint      `json:"id"`
-	ClientID                string    `json:"client_id"`
-	ClientSecret            string    `json:"client_secret"`
-	Name                    string    `json:"name"`
-	RedirectURIs            []string  `json:"redirect_uris"`
-	Scope                   string    `json:"scope"`
-	GrantTypes              []string  `json:"grant_types"`
-	ResponseTypes           []string  `json:"response_types"`
-	TokenEndpointAuthMethod string    `json:"token_endpoint_auth_method"`
-	Status                  int       `json:"status"`
-	CreatedAt               time.Time `json:"created_at"`
-}
-
-// ClientListRequest 客户端列表请求
-type ClientListRequest struct {
-	Page     int `json:"page" form:"page" binding:"min=1"`
-	PageSize int `json:"page_size" form:"page_size" binding:"min=1,max=100"`
-}
-
-// ClientCreateRequest 创建客户端请求
-type ClientCreateRequest struct {
-	Name                    string   `json:"name" binding:"required"`
-	RedirectURIs            []string `json:"redirect_uris" binding:"required"`
-	Scope                   string   `json:"scope"`
-	GrantTypes              []string `json:"grant_types"`
-	ResponseTypes           []string `json:"response_types"`
-	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
-}
-
-// ClientUpdateRequest 更新客户端请求
-type ClientUpdateRequest struct {
-	ID                      uint     `json:"id" binding:"required"`
-	Name                    string   `json:"name"`
-	RedirectURIs            []string `json:"redirect_uris"`
-	Scope                   string   `json:"scope"`
-	GrantTypes              []string `json:"grant_types"`
-	ResponseTypes           []string `json:"response_types"`
-	TokenEndpointAuthMethod string   `json:"token_endpoint_auth_method"`
-	Status                  int      `json:"status"`
-}
-
-// ClientDeleteRequest 删除客户端请求
-type ClientDeleteRequest struct {
-	ID uint `json:"id" binding:"required"`
-}
-
-// ClientListResponse 客户端列表响应
-type ClientListResponse struct {
-	List     []ClientResponse `json:"list"`
-	Total    int64            `json:"total"`
-	Page     int              `json:"page"`
-	PageSize int              `json:"page_size"`
-}
-
 // ToResponse 转换为响应
-func (c *Client) ToResponse() *ClientResponse {
+func (c *Client) ToResponse() *v1.ClientResponse {
 	// 解析RedirectURIs
 	var redirectURIs []string
 	if c.RedirectURIs != "" {
@@ -102,7 +48,7 @@ func (c *Client) ToResponse() *ClientResponse {
 		json.Unmarshal([]byte(c.ResponseTypes), &responseTypes)
 	}
 
-	return &ClientResponse{
+	return &v1.ClientResponse{
 		ID:                      c.ID,
 		ClientID:                c.ClientID,
 		ClientSecret:            c.ClientSecret,

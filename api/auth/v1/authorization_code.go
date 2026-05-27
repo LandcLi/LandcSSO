@@ -4,11 +4,17 @@ package v1
 type AuthorizationCodeRequest struct {
 	ClientID            string `json:"client_id" binding:"required"`
 	RedirectURI         string `json:"redirect_uri" binding:"required"`
-	Scope               string `json:"scope"`
-	State               string `json:"state"`
-	Nonce               string `json:"nonce"`
-	CodeChallenge       string `json:"code_challenge"`
-	CodeChallengeMethod string `json:"code_challenge_method"`
+	ResponseType        string `json:"response_type" binding:"required"`
+	Scope               string `json:"scope,omitempty"`
+	State               string `json:"state" binding:"required"`
+	Nonce               string `json:"nonce,omitempty"`
+	CodeChallenge       string `json:"code_challenge,omitempty"`
+	CodeChallengeMethod string `json:"code_challenge_method,omitempty"`
+}
+type AuthorizationCodeResponse struct {
+	RedirectURI string `json:"redirect_uri"`
+	Code        string `json:"code"`
+	State       string `json:"state"`
 }
 
 // ValidateAuthorizationCodeRequest 验证授权码请求结构

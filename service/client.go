@@ -1,14 +1,15 @@
 package service
 
 import (
+	v1 "github.com/LandcLi/LandcSSO/api/client/v1"
 	"github.com/LandcLi/LandcSSO/model"
 )
 
 type clientService interface {
-	List(req *model.ClientListRequest) (*model.ClientListResponse, error)
-	Create(req *model.ClientCreateRequest) (*model.ClientResponse, error)
-	Update(req *model.ClientUpdateRequest) (*model.ClientResponse, error)
-	Delete(req *model.ClientDeleteRequest) error
+	List(req *v1.ClientListRequest) (*v1.ClientListResponse, error)
+	Create(req *v1.ClientCreateRequest) (*v1.ClientResponse, error)
+	Update(req *v1.ClientUpdateRequest) (*v1.ClientResponse, error)
+	Delete(req *v1.ClientDeleteRequest) error
 	GetByClientID(clientID string) (*model.Client, error)
 }
 

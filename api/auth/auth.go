@@ -22,6 +22,10 @@ type authApi interface {
 	GenerateAuthorizationCode(ctx context.Context, req *v1.AuthorizationCodeRequest) (string, error)
 	ValidateAuthorizationCode(ctx context.Context, req *v1.ValidateAuthorizationCodeRequest) (*model.AuthorizationCode, error)
 	GetThirdPartyAuthURL(ctx context.Context, req *v1.ThirdPartyAuthURLRequest) (*v1.ThirdPartyAuthURLResponse, error)
+	Authorize(ctx context.Context, req *v1.AuthorizationCodeRequest) (*v1.AuthorizationCodeResponse, error)
+	Token(ctx context.Context, req *v1.TokenRequest) (*v1.TokenResponse, error)
+	Introspect(ctx context.Context, req *v1.IntrospectRequest) (*v1.IntrospectResponse, error)
+	GetJWKS(ctx context.Context) (*v1.JWKSResponse, error)
 }
 
 func RegisterAuthController(controller authApi) {
@@ -173,6 +177,78 @@ func GetThirdPartyAuthURL(c *gin.Context) {
 		return
 	}
 	resp, err := authControllerImpl.GetThirdPartyAuthURL(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+func Authorize(c *gin.Context) {
+	req := &v1.AuthorizationCodeRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request",
+		})
+		return
+	}
+	resp, err := authControllerImpl.Authorize(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+func Token(c *gin.Context) {
+	req := &v1.TokenRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request",
+		})
+		return
+	}
+	ip := c.ClientIP()
+	deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
+	userAgent := c.GetHeader("User-Agent")
+	ctx := context.WithValue(c.Request.Context(), "IP", ip)
+	ctx = context.WithValue(ctx, "DeviceFingerprint", deviceFingerprint)
+	ctx = context.WithValue(ctx, "UserAgent", userAgent)
+	resp, err := authControllerImpl.Token(ctx, req)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+func GetJWKS(c *gin.Context) {
+	resp, err := authControllerImpl.GetJWKS(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+func Introspect(c *gin.Context) {
+	req := &v1.IntrospectRequest{}
+	if err := c.ShouldBindJSON(req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request",
+		})
+		return
+	}
+	ip := c.ClientIP()
+	deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
+	ctx := context.WithValue(c.Request.Context(), "IP", ip)
+	ctx = context.WithValue(ctx, "DeviceFingerprint", deviceFingerprint)
+	resp, err := authControllerImpl.Introspect(ctx, req)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),

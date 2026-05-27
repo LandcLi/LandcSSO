@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"time"
 
+	v1 "github.com/LandcLi/LandcSSO/api/client/v1"
 	"github.com/LandcLi/LandcSSO/dao"
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
@@ -31,7 +32,7 @@ func init() {
 	}
 }
 
-func (s *clientServiceImpl) List(req *model.ClientListRequest) (*model.ClientListResponse, error) {
+func (s *clientServiceImpl) List(req *v1.ClientListRequest) (*v1.ClientListResponse, error) {
 	ctx := context.Background()
 
 	clients, total, err := dao.GetClientDao().List(req.Page, req.PageSize)
@@ -40,12 +41,12 @@ func (s *clientServiceImpl) List(req *model.ClientListRequest) (*model.ClientLis
 		return nil, err
 	}
 
-	clientResponses := make([]model.ClientResponse, len(clients))
+	clientResponses := make([]v1.ClientResponse, len(clients))
 	for i, client := range clients {
 		clientResponses[i] = *client.ToResponse()
 	}
 
-	return &model.ClientListResponse{
+	return &v1.ClientListResponse{
 		List:     clientResponses,
 		Total:    total,
 		Page:     req.Page,
@@ -53,7 +54,7 @@ func (s *clientServiceImpl) List(req *model.ClientListRequest) (*model.ClientLis
 	}, nil
 }
 
-func (s *clientServiceImpl) Create(req *model.ClientCreateRequest) (*model.ClientResponse, error) {
+func (s *clientServiceImpl) Create(req *v1.ClientCreateRequest) (*v1.ClientResponse, error) {
 	ctx := context.Background()
 
 	clientID := generateClientID()
@@ -98,7 +99,7 @@ func (s *clientServiceImpl) Create(req *model.ClientCreateRequest) (*model.Clien
 	return client.ToResponse(), nil
 }
 
-func (s *clientServiceImpl) Update(req *model.ClientUpdateRequest) (*model.ClientResponse, error) {
+func (s *clientServiceImpl) Update(req *v1.ClientUpdateRequest) (*v1.ClientResponse, error) {
 	ctx := context.Background()
 
 	client, err := dao.GetClientDao().FindByID(req.ID)
@@ -159,7 +160,7 @@ func (s *clientServiceImpl) Update(req *model.ClientUpdateRequest) (*model.Clien
 	return client.ToResponse(), nil
 }
 
-func (s *clientServiceImpl) Delete(req *model.ClientDeleteRequest) error {
+func (s *clientServiceImpl) Delete(req *v1.ClientDeleteRequest) error {
 	ctx := context.Background()
 
 	_, err := dao.GetClientDao().FindByID(req.ID)
