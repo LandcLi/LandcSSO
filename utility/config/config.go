@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 
+	"github.com/LandcLi/landc-go/log/facade"
 	"gopkg.in/yaml.v2"
 )
 
@@ -13,7 +14,7 @@ type Config struct {
 	Database    DatabaseConfig    `yaml:"database"`
 	Redis       RedisConfig       `yaml:"redis"`
 	JWT         JWTConfig         `yaml:"jwt"`
-	Log         LogConfig         `yaml:"log"`
+	Log         facade.LogConfig  `yaml:"log"`
 	MultiActive MultiActiveConfig `yaml:"multiActive"`
 	Mail        MailConfig        `yaml:"mail"`
 	SMS         SMSConfig         `yaml:"sms"`
@@ -142,13 +143,7 @@ type JWTConfig struct {
 	MaxConcurrentSessions int    `yaml:"maxConcurrentSessions"` // 最大并发会话数
 }
 
-// LogConfig 日志配置
-type LogConfig struct {
-	Provider   string `yaml:"provider"`
-	Level      string `yaml:"level"`
-	Format     string `yaml:"format"`
-	OutputPath string `yaml:"outputPath"`
-}
+
 
 // LoadConfig 加载配置文件
 func LoadConfig(path string) (*Config, error) {

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LandcLi/LandcLogFace"
+	"github.com/LandcLi/landc-go/log/facade"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -81,14 +81,14 @@ func InitDatabase(cfg *DatabaseConfig) error {
 			// 连接从库
 			slaveDB, err := gorm.Open(mysql.Open(slaveDSN), gormConfig)
 			if err != nil {
-				LandcLogFace.GetLogger().Error(fmt.Sprintf("从库连接失败: %v", err))
+				facade.GetLogger().Error(fmt.Sprintf("从库连接失败: %v", err))
 				continue
 			}
 
 			// 配置从库连接池
 			slaveSQLDB, err := slaveDB.DB()
 			if err != nil {
-				LandcLogFace.GetLogger().Error(fmt.Sprintf("从库连接池配置失败: %v", err))
+				facade.GetLogger().Error(fmt.Sprintf("从库连接池配置失败: %v", err))
 				continue
 			}
 
@@ -99,11 +99,11 @@ func InitDatabase(cfg *DatabaseConfig) error {
 
 			// 添加到从库列表
 			DBSlaves = append(DBSlaves, slaveDB)
-			LandcLogFace.GetLogger().Info(fmt.Sprintf("从库连接成功: %s:%d", slaveHost, slavePort))
+			facade.GetLogger().Info(fmt.Sprintf("从库连接成功: %s:%d", slaveHost, slavePort))
 		}
 	}
 
-	LandcLogFace.GetLogger().Info("数据库连接成功")
+	facade.GetLogger().Info("数据库连接成功")
 	return nil
 }
 

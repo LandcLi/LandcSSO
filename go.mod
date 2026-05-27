@@ -3,9 +3,9 @@ module github.com/LandcLi/LandcSSO
 go 1.24.0
 
 require (
-	github.com/LandcLi/LandcCommonApi v0.0.0-20260116152221-0779acd06034
-	github.com/LandcLi/LandcLogFace v0.0.0-20260128153627-e6b3f81a9aa0
-	github.com/LandcLi/LandcUserManager v0.0.0-20260131082543-891c855f51ad
+	github.com/LandcLi/landc-go/api v0.0.0
+	github.com/LandcLi/landc-go/log v0.0.0
+	github.com/LandcLi/LandcUserManager v0.0.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v5 v5.3.0
@@ -19,6 +19,7 @@ require (
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
+	github.com/LandcLi/landc-go/tools v0.0.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.14.2 // indirect
 	github.com/bytedance/sonic/loader v0.4.0 // indirect
@@ -75,4 +76,11 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+)
+
+replace (
+	github.com/LandcLi/landc-go/api => ../landc-go/api
+	github.com/LandcLi/landc-go/log => ../landc-go/log
+	github.com/LandcLi/landc-go/tools => ../landc-go/tools
+	github.com/LandcLi/LandcUserManager => ../LandcUserManager
 )

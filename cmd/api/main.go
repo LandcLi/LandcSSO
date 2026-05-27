@@ -6,14 +6,28 @@ import (
 	"fmt"
 	"log"
 
-	ginLog "github.com/LandcLi/LandcLogFace/adapter/gin"
-	"github.com/LandcLi/LandcSSO/internal/api"
-	"github.com/LandcLi/LandcSSO/internal/middleware"
-	"github.com/LandcLi/LandcSSO/internal/repository"
-	"github.com/LandcLi/LandcSSO/internal/service"
-	"github.com/LandcLi/LandcSSO/pkg/config"
+	"github.com/LandcLi/LandcSSO/api"
+	_ "github.com/LandcLi/LandcSSO/internal/controller/auth"
+	_ "github.com/LandcLi/LandcSSO/internal/controller/client"
+	_ "github.com/LandcLi/LandcSSO/internal/daoimpl/audit"
+	_ "github.com/LandcLi/LandcSSO/internal/daoimpl/client"
+	_ "github.com/LandcLi/LandcSSO/internal/daoimpl/monitor"
+	_ "github.com/LandcLi/LandcSSO/internal/daoimpl/token"
+	_ "github.com/LandcLi/LandcSSO/internal/serviceimpl/audit"
+	_ "github.com/LandcLi/LandcSSO/internal/serviceimpl/auth"
+	_ "github.com/LandcLi/LandcSSO/internal/serviceimpl/client"
+	_ "github.com/LandcLi/LandcSSO/internal/serviceimpl/key"
+	_ "github.com/LandcLi/LandcSSO/internal/serviceimpl/monitor"
+	_ "github.com/LandcLi/LandcSSO/internal/serviceimpl/session"
+	_ "github.com/LandcLi/LandcSSO/internal/serviceimpl/third_party"
+	"github.com/LandcLi/LandcSSO/middleware"
+	"github.com/LandcLi/LandcSSO/utility/config"
+	"github.com/LandcLi/LandcSSO/utility/logger"
+	ginLog "github.com/LandcLi/landc-go/log/adapter/gin"
 
-	"github.com/LandcLi/LandcSSO/pkg/logger"
+	landcusermanager "github.com/LandcLi/LandcUserManager"
+	lumConfig "github.com/LandcLi/LandcUserManager/utility/config"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,7 +42,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
 	}
-	logger.InitLogger(cfg)
+
+	// 初始化日志
+	logger.InitLogger(&cfg.Log)
+
 	// 初始化数据库连接
 	err = config.InitDatabase(&cfg.Database)
 	if err != nil {
@@ -43,33 +60,6 @@ func main() {
 		return
 	}
 
-	// 初始化仓库
-	auditRepo := repository.NewAuditRepository(config.GetDB())
-	userRepo := repository.NewUserRepository(config.GetDB(), config.GetRedis())
-	tokenRepo := repository.NewTokenRepository(config.GetDB(), config.GetRedis())
-	loginHistoryRepo := repository.NewLoginHistoryRepository(config.GetDB())
-	trustedDeviceRepo := repository.NewTrustedDeviceRepository(config.GetDB(), config.GetRedis())
-	thirdPartyUserRepo := repository.NewThirdPartyUserRepository(config.GetDB(), config.GetRedis())
-	clientRepo := repository.NewClientRepository(config.GetDB())
-	monitorRepo := repository.NewMonitorRepository(config.GetDB())
-
-	// 初始化服务
-	auditService := service.NewAuditService(auditRepo)
-	authService := service.NewAuthService(userRepo, tokenRepo, loginHistoryRepo, trustedDeviceRepo, thirdPartyUserRepo, cfg)
-	clientService := service.NewClientService(clientRepo, cfg)
-	sessionService := service.NewSessionService()
-	monitorService := service.NewMonitorService(monitorRepo, auditService, cfg)
-
-	// 设置服务依赖
-	authService.SetClientService(clientService)
-	authService.SetSessionService(sessionService)
-
-	// 设置服务到API模块
-	api.SetAuthService(authService)
-	api.SetClientService(clientService)
-	api.SetAuditService(auditService)
-	api.SetMonitorService(monitorService)
-
 	// 创建Gin引擎
 	r := gin.Default()
 
@@ -77,9 +67,37 @@ func main() {
 	r.Use(middleware.Cors())
 	ginLog.UseWithGin(r, logger.GetLogger())
 	r.Use(middleware.GinMiddleware())
+	r.Use(middleware.RequestLogger())
 
-	// 注册路由
-	api.RegisterRoutes(r)
+	// 初始化 LandcUserManager（共享同一个 Gin 引擎）
+	lumCfg := &lumConfig.Config{
+		Server: lumConfig.ServerConfig{
+			GinMode:          cfg.Server.Mode,
+			EnableCORS:       false, // SSO already handles CORS
+			UserDefaultRoute: true,
+		},
+		Database: lumConfig.DatabaseConfig{
+			DSN: fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=%v&loc=%s",
+				cfg.Database.User, cfg.Database.Password,
+				cfg.Database.Host, cfg.Database.Port,
+				cfg.Database.DBName, cfg.Database.Charset,
+				cfg.Database.ParseTime, cfg.Database.Loc),
+		},
+		Redis: lumConfig.RedisConfig{
+			Addr:     fmt.Sprintf("%s:%d", cfg.Redis.Host, cfg.Redis.Port),
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+			PoolSize: cfg.Redis.PoolSize,
+		},
+	}
+	err = landcusermanager.InitLUMWithConfigAndGin(lumCfg, r)
+	if err != nil {
+		logger.Errorf(ctx, "初始化LandcUserManager失败: %v", err)
+		return
+	}
+
+	// 注册SSO路由
+	api.RegisterDefaultRoutes(r)
 
 	// 启动服务
 	addr := fmt.Sprintf(":%d", cfg.Server.Port)

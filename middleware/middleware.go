@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/LandcLi/LandcCommonApi/middleware"
 	"github.com/LandcLi/LandcSSO/pkg/logger"
+	"github.com/LandcLi/landc-go/api/middleware"
 
 	"github.com/gin-gonic/gin"
 )

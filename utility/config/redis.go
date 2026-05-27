@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/LandcLi/LandcLogFace"
+	"github.com/LandcLi/landc-go/log/facade"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -59,15 +59,15 @@ func InitRedis(cfg *RedisConfig, multiActiveCfg *MultiActiveConfig) error {
 	if multiActiveCfg != nil && multiActiveCfg.Enabled && multiActiveCfg.RedisSyncEnabled && multiActiveCfg.RedisSyncTarget != "" {
 		syncClient, err := initRedisSyncClient(multiActiveCfg.RedisSyncTarget, cfg.Password, cfg.PoolSize)
 		if err != nil {
-			LandcLogFace.GetLogger().Error(fmt.Sprintf("Redis同步客户端初始化失败: %v", err))
+			facade.GetLogger().Error(fmt.Sprintf("Redis同步客户端初始化失败: %v", err))
 			// 继续执行，不影响主客户端初始化
 		} else {
 			RedisSyncClient = syncClient
-			LandcLogFace.GetLogger().Info("Redis同步客户端初始化成功")
+			facade.GetLogger().Info("Redis同步客户端初始化成功")
 		}
 	}
 
-	LandcLogFace.GetLogger().Info("Redis连接成功")
+	facade.GetLogger().Info("Redis连接成功")
 	return nil
 }
 
