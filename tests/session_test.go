@@ -3,8 +3,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/LandcLi/LandcSSO/internal/service"
-	"github.com/LandcLi/LandcSSO/pkg/config"
+	"github.com/LandcLi/LandcSSO/service"
+	"github.com/LandcLi/LandcSSO/utility/config"
 )
 
 func TestSessionService_CreateSession(t *testing.T) {

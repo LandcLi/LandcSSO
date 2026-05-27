@@ -3,9 +3,9 @@ package tests
 import (
 	"testing"
 
-	"github.com/LandcLi/LandcSSO/internal/repository"
-	"github.com/LandcLi/LandcSSO/internal/service"
-	"github.com/LandcLi/LandcSSO/pkg/config"
+	"github.com/LandcLi/LandcSSO/dao"
+	"github.com/LandcLi/LandcSSO/service"
+	"github.com/LandcLi/LandcSSO/utility/config"
 )
 
 func TestAuditService_GetAllEvents(t *testing.T) {

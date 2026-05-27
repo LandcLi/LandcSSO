@@ -10,7 +10,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/LandcLi/LandcSSO/pkg/logger"
+	"github.com/LandcLi/LandcSSO/utility/logger"
 )
 
 // Client SDK客户端
