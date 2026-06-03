@@ -11,7 +11,7 @@ import (
 	"github.com/LandcLi/LandcSSO/service"
 	userapi "github.com/LandcLi/LandcUserManager/api/user"
 	userv1api "github.com/LandcLi/LandcUserManager/api/user/v1"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 func init() {

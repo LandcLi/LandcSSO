@@ -6,7 +6,7 @@ import (
 	clientApi "github.com/LandcLi/LandcSSO/api/client"
 	v1 "github.com/LandcLi/LandcSSO/api/client/v1"
 	"github.com/LandcLi/LandcSSO/service"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 func init() {

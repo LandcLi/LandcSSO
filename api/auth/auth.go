@@ -5,7 +5,7 @@ import (
 
 	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
 	"github.com/LandcLi/LandcSSO/model"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 	"github.com/gin-gonic/gin"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 
 	v1 "github.com/LandcLi/LandcSSO/api/client/v1"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 // ClientController defines the OAuth client management interface.

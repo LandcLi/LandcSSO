@@ -8,7 +8,7 @@ import (
 	clientApi "github.com/LandcLi/LandcSSO/api/client"
 	clientV1 "github.com/LandcLi/LandcSSO/api/client/v1"
 	"github.com/LandcLi/LandcSSO/model"
-	"github.com/LandcLi/landc-go/mvc/pkg/di"
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
 // ============ Remote Auth Controller ============
