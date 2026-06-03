@@ -4,9 +4,9 @@ go 1.24.0
 
 require (
 	github.com/LandcLi/LandcUserManager v0.0.0
-	github.com/LandcLi/landc-go/api v0.0.0
-	github.com/LandcLi/landc-go/frame v0.0.0
-	github.com/LandcLi/landc-go/log v0.0.0
+	github.com/LandcLi/landc-go/api v0.1.0
+	github.com/LandcLi/landc-go/frame v0.1.0
+	github.com/LandcLi/landc-go/log v0.1.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -17,7 +17,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/LandcLi/landc-go/tools v0.0.0 // indirect
+	github.com/LandcLi/landc-go/tools v0.1.0 // indirect
 	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.14.2 // indirect
 	github.com/bytedance/sonic/loader v0.4.0 // indirect
