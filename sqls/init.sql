@@ -1,57 +1,4 @@
--- 创建数据库
-CREATE DATABASE IF NOT EXISTS `sso` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-
-USE `sso`;
-
--- 用户表
-CREATE TABLE IF NOT EXISTS `users` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `username` varchar(50) NOT NULL COMMENT '用户名',
-  `email` varchar(100) NOT NULL COMMENT '邮箱',
-  `password` varchar(100) NOT NULL COMMENT '密码',
-  `nickname` varchar(50) DEFAULT NULL COMMENT '昵称',
-  `avatar` varchar(255) DEFAULT NULL COMMENT '头像',
-  `phone` varchar(20) DEFAULT NULL COMMENT '手机号',
-  `status` int(11) DEFAULT '1' COMMENT '状态：1-活跃，0-禁用',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_username` (`username`),
-  UNIQUE KEY `uk_email` (`email`),
-  KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
-
--- 第三方用户关联表
-CREATE TABLE IF NOT EXISTS `third_party_user_links` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
-  `provider` varchar(50) NOT NULL COMMENT '第三方提供商',
-  `open_id` varchar(100) NOT NULL COMMENT '第三方开放ID',
-  `union_id` varchar(100) DEFAULT NULL COMMENT '第三方统一ID',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_provider` (`provider`),
-  KEY `idx_open_id` (`open_id`),
-  KEY `idx_union_id` (`union_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方用户关联表';
-
--- 信任设备表
-CREATE TABLE IF NOT EXISTS `trusted_devices` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
-  `device_fingerprint` varchar(255) NOT NULL COMMENT '设备指纹',
-  `device_name` varchar(100) DEFAULT NULL COMMENT '设备名称',
-  `last_login_ip` varchar(50) DEFAULT NULL COMMENT '最后登录IP',
-  `first_login_time` timestamp NULL DEFAULT NULL COMMENT '首次登录时间',
-  `last_login_time` timestamp NULL DEFAULT NULL COMMENT '最后登录时间',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_device_fingerprint` (`device_fingerprint`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='信任设备表';
+USE `test_db`;
 
 -- 令牌表
 CREATE TABLE IF NOT EXISTS `tokens` (
@@ -115,36 +62,6 @@ CREATE TABLE IF NOT EXISTS `audit_events` (
   KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审计事件表';
 
--- 插入默认管理员用户（密码：123456）
-INSERT INTO `users` (`username`, `email`, `password`, `nickname`, `status`) VALUES
-('admin', 'admin@example.com', '$2a$10$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6Lruj3vjPGga31lW', '管理员', 1)
-ON DUPLICATE KEY UPDATE `email` = VALUES(`email`), `nickname` = VALUES(`nickname`), `status` = VALUES(`status`);
-
--- 插入默认客户端
-INSERT INTO `clients` (`client_id`, `client_secret`, `name`, `redirect_uris`, `scope`, `grant_types`, `response_types`) VALUES
-('test-client', 'test-secret', '测试客户端', '["http://localhost:3000/callback"]', 'openid profile email', '["authorization_code", "refresh_token"]', '["code"]')
-ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `redirect_uris` = VALUES(`redirect_uris`), `scope` = VALUES(`scope`), `grant_types` = VALUES(`grant_types`), `response_types` = VALUES(`response_types`);
-
--- 登录历史表
-CREATE TABLE IF NOT EXISTS `login_histories` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
-  `ip` varchar(50) NOT NULL COMMENT 'IP地址',
-  `device_fingerprint` varchar(255) DEFAULT NULL COMMENT '设备指纹',
-  `user_agent` varchar(255) DEFAULT NULL COMMENT '用户代理',
-  `login_time` datetime NOT NULL COMMENT '登录时间',
-  `status` int(11) DEFAULT '1' COMMENT '状态：1-成功，0-失败',
-  `is_abnormal` tinyint(1) DEFAULT '0' COMMENT '是否异地登录',
-  `remark` varchar(255) DEFAULT NULL COMMENT '备注',
-  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-  PRIMARY KEY (`id`),
-  KEY `idx_user_id` (`user_id`),
-  KEY `idx_ip` (`ip`),
-  KEY `idx_login_time` (`login_time`),
-  KEY `idx_status` (`status`),
-  KEY `idx_is_abnormal` (`is_abnormal`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='登录历史表';
-
 -- 监控指标表
 CREATE TABLE IF NOT EXISTS `monitor_metrics` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -205,3 +122,8 @@ CREATE TABLE IF NOT EXISTS `authorization_codes` (
   KEY `idx_expires_at` (`expires_at`),
   KEY `idx_used` (`used`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='授权码表';
+
+-- 插入默认客户端
+INSERT INTO `clients` (`client_id`, `client_secret`, `name`, `redirect_uris`, `scope`, `grant_types`, `response_types`) VALUES
+('test-client', 'test-secret', '测试客户端', '["http://localhost:3000/callback"]', 'openid profile email', '["authorization_code", "refresh_token"]', '["code"]')
+ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `redirect_uris` = VALUES(`redirect_uris`), `scope` = VALUES(`scope`), `grant_types` = VALUES(`grant_types`), `response_types` = VALUES(`response_types`);

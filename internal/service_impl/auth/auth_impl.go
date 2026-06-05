@@ -39,11 +39,13 @@ type authServiceImpl struct {
 
 // NewAuthService 创建认证服务实例
 func NewAuthServiceImpl() *authServiceImpl {
-	// Go 1.20+ 不需要手动初始化随机数种子
-	// 系统会自动初始化
+	cfg := config.GetConfig()
+	if cfg == nil {
+		panic("failed to load config")
+	}
 
 	service := &authServiceImpl{
-		config: config.GetConfig(),
+		config: cfg,
 	}
 
 	// 加载RSA密钥（如果配置了）
