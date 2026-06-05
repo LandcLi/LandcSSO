@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/LandcLi/LandcSSO/api"
-	"github.com/LandcLi/LandcSSO/middleware"
+	"github.com/LandcLi/LandcSSO/internal/middleware"
 	"github.com/LandcLi/landc-go/frame/pkg/cmd"
 	"github.com/LandcLi/landc-go/frame/pkg/web"
 	userapi "github.com/LandcLi/LandcUserManager/api/user"
