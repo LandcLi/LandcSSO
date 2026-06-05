@@ -10,7 +10,7 @@ import (
 
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/LandcLi/LandcSSO/utility/config"
-	"github.com/LandcLi/LandcSSO/utility/logger"
+	"github.com/LandcLi/landc-go/log/facade"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -52,7 +52,7 @@ func (s *sessionServiceImpl) CreateSession(userID uint, username string, data ma
 
 	sessionJSON, err := json.Marshal(session)
 	if err != nil {
-		logger.Errorf(ctx, "序列化会话失败: %v", err)
+		facade.Errorf("序列化会话失败: %v", err)
 		return "", err
 	}
 
@@ -63,7 +63,7 @@ func (s *sessionServiceImpl) CreateSession(userID uint, username string, data ma
 	} else {
 		err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
 		if err != nil {
-			logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
+			facade.Errorf("存储会话到Redis失败: %v", err)
 			return "", err
 		}
 	}
@@ -88,7 +88,7 @@ func (s *sessionServiceImpl) GetSession(sessionID string) (*service.Session, err
 	} else {
 		result, e := s.redisClient.Get(ctx, sessionID).Result()
 		if e != nil {
-			logger.Errorf(ctx, "从Redis获取会话失败: %v", e)
+			facade.Errorf("从Redis获取会话失败: %v", e)
 			return nil, e
 		}
 		sessionJSON = []byte(result)
@@ -97,7 +97,7 @@ func (s *sessionServiceImpl) GetSession(sessionID string) (*service.Session, err
 	var session service.Session
 	err = json.Unmarshal(sessionJSON, &session)
 	if err != nil {
-		logger.Errorf(ctx, "反序列化会话失败: %v", err)
+		facade.Errorf("反序列化会话失败: %v", err)
 		return nil, err
 	}
 
@@ -121,7 +121,7 @@ func (s *sessionServiceImpl) UpdateSession(sessionID string, data map[string]int
 
 	sessionJSON, err := json.Marshal(session)
 	if err != nil {
-		logger.Errorf(ctx, "序列化会话失败: %v", err)
+		facade.Errorf("序列化会话失败: %v", err)
 		return err
 	}
 
@@ -132,7 +132,7 @@ func (s *sessionServiceImpl) UpdateSession(sessionID string, data map[string]int
 	} else {
 		err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
 		if err != nil {
-			logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
+			facade.Errorf("存储会话到Redis失败: %v", err)
 			return err
 		}
 	}
@@ -150,7 +150,7 @@ func (s *sessionServiceImpl) DeleteSession(sessionID string) error {
 	} else {
 		err := s.redisClient.Del(ctx, sessionID).Err()
 		if err != nil {
-			logger.Errorf(ctx, "从Redis删除会话失败: %v", err)
+			facade.Errorf("从Redis删除会话失败: %v", err)
 			return err
 		}
 	}
@@ -173,14 +173,14 @@ func (s *sessionServiceImpl) DeleteUserSessions(userID uint) error {
 	} else {
 		keys, err := s.redisClient.Keys(ctx, fmt.Sprintf("session:%d:*", userID)).Result()
 		if err != nil {
-			logger.Errorf(ctx, "查找用户会话失败: %v", err)
+			facade.Errorf("查找用户会话失败: %v", err)
 			return err
 		}
 
 		if len(keys) > 0 {
 			err = s.redisClient.Del(ctx, keys...).Err()
 			if err != nil {
-				logger.Errorf(ctx, "删除用户会话失败: %v", err)
+				facade.Errorf("删除用户会话失败: %v", err)
 				return err
 			}
 		}
@@ -200,7 +200,7 @@ func (s *sessionServiceImpl) ExtendSession(sessionID string) error {
 
 	sessionJSON, err := json.Marshal(session)
 	if err != nil {
-		logger.Errorf(ctx, "序列化会话失败: %v", err)
+		facade.Errorf("序列化会话失败: %v", err)
 		return err
 	}
 
@@ -211,7 +211,7 @@ func (s *sessionServiceImpl) ExtendSession(sessionID string) error {
 	} else {
 		err = s.redisClient.Set(ctx, sessionID, sessionJSON, 24*time.Hour).Err()
 		if err != nil {
-			logger.Errorf(ctx, "存储会话到Redis失败: %v", err)
+			facade.Errorf("存储会话到Redis失败: %v", err)
 			return err
 		}
 	}

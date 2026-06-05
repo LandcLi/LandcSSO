@@ -11,7 +11,7 @@ import (
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/LandcLi/LandcSSO/utility/config"
-	"github.com/LandcLi/LandcSSO/utility/logger"
+	"github.com/LandcLi/landc-go/log/facade"
 )
 
 type monitorServiceImpl struct {
@@ -184,7 +184,7 @@ func (s *monitorServiceImpl) recordMetric(ctx context.Context, metricType, metri
 
 	_, err := dao.GetMonitorDao().CreateMetric(metric)
 	if err != nil {
-		logger.Errorf(ctx, "记录监控指标失败: %v", err)
+		facade.Errorf("记录监控指标失败: %v", err)
 	}
 }
 
@@ -242,7 +242,7 @@ func (s *monitorServiceImpl) createAnomalyEvent(ctx context.Context, eventType, 
 
 	_, err := dao.GetMonitorDao().CreateAnomalyEvent(event)
 	if err != nil {
-		logger.Errorf(ctx, "创建异常事件失败: %v", err)
+		facade.Errorf("创建异常事件失败: %v", err)
 	}
 
 	service.GetAuditService().LogEvent("security_anomaly", userID, "", ip, "", description, "warning")

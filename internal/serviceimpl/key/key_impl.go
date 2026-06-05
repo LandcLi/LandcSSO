@@ -1,7 +1,6 @@
 package key
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -12,7 +11,7 @@ import (
 
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/LandcLi/LandcSSO/utility/config"
-	"github.com/LandcLi/LandcSSO/utility/logger"
+	"github.com/LandcLi/landc-go/log/facade"
 )
 
 type key struct {
@@ -41,10 +40,9 @@ func init() {
 }
 
 func (s *keyServiceImpl) GenerateKey() (*service.Key, error) {
-	ctx := context.Background()
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		logger.Errorf(ctx, "生成RSA密钥对失败: %v", err)
+		facade.Errorf("生成RSA密钥对失败: %v", err)
 		return nil, err
 	}
 
@@ -107,7 +105,6 @@ func (s *keyServiceImpl) GetCurrentKey() (*service.Key, error) {
 }
 
 func (s *keyServiceImpl) GetPublicKeyPEM(key *service.Key) (string, error) {
-	ctx := context.Background()
 	publicKey, ok := key.PublicKey.(*rsa.PublicKey)
 	if !ok {
 		return "", errors.New("无效的公钥类型")
@@ -115,7 +112,7 @@ func (s *keyServiceImpl) GetPublicKeyPEM(key *service.Key) (string, error) {
 
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(publicKey)
 	if err != nil {
-		logger.Errorf(ctx, "编码公钥失败: %v", err)
+		facade.Errorf("编码公钥失败: %v", err)
 		return "", err
 	}
 
@@ -129,7 +126,6 @@ func (s *keyServiceImpl) GetPublicKeyPEM(key *service.Key) (string, error) {
 }
 
 func (s *keyServiceImpl) GetPrivateKeyPEM(key *service.Key) (string, error) {
-	ctx := context.Background()
 	privateKey, ok := key.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
 		return "", errors.New("无效的私钥类型")
@@ -137,7 +133,7 @@ func (s *keyServiceImpl) GetPrivateKeyPEM(key *service.Key) (string, error) {
 
 	privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
 	if privateKeyBytes == nil {
-		logger.Error(ctx, "编码私钥失败")
+		facade.Error("编码私钥失败")
 		return "", errors.New("编码私钥失败")
 	}
 
@@ -162,11 +158,10 @@ func (s *keyServiceImpl) RevokeKey(keyID string) error {
 }
 
 func (s *keyServiceImpl) CleanExpiredKeys() {
-	ctx := context.Background()
 	for keyID, key := range s.keys {
 		if time.Now().After(key.ExpiresAt) {
 			delete(s.keys, keyID)
-			logger.Infof(ctx, "清理过期密钥: %s", keyID)
+			facade.Infof("清理过期密钥: %s", keyID)
 		}
 	}
 }

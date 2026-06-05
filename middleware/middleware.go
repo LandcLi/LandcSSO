@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/LandcLi/LandcSSO/utility/logger"
+	"github.com/LandcLi/landc-go/log/facade"
 	apiMiddleware 	"github.com/LandcLi/landc-go/api/middleware/gin"
 
 	"github.com/gin-gonic/gin"
@@ -48,7 +48,6 @@ func RequestLogger() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 开始时间
 		startTime := time.Now()
-		ctx := context.Background()
 
 		// 处理请求
 		c.Next()
@@ -68,7 +67,7 @@ func RequestLogger() gin.HandlerFunc {
 		clientIP := c.ClientIP()
 
 		// 日志格式
-		logger.Infof(ctx, "| %3d | %13v | %15s | %s | %s |",
+		facade.Infof("| %3d | %13v | %15s | %s | %s |",
 			statusCode,
 			latency,
 			clientIP,

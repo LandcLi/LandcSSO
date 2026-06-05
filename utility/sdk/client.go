@@ -2,7 +2,6 @@ package sdk
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/LandcLi/LandcSSO/utility/logger"
+	"github.com/LandcLi/landc-go/log/facade"
 )
 
 // Client SDK客户端
@@ -43,7 +42,6 @@ func (c *Client) GetAuthorizationURL(state string) string {
 
 // ExchangeToken 交换令牌
 func (c *Client) ExchangeToken(code string) (*TokenResponse, error) {
-	ctx := context.Background()
 	// 构建请求体
 	data := url.Values{}
 	data.Add("grant_type", "authorization_code")
@@ -55,21 +53,21 @@ func (c *Client) ExchangeToken(code string) (*TokenResponse, error) {
 	// 发送请求
 	resp, err := c.httpClient.PostForm(fmt.Sprintf("%s/token", c.config.Issuer), data)
 	if err != nil {
-		logger.Errorf(ctx, "交换令牌请求失败: %v", err)
+		facade.Errorf("交换令牌请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "交换令牌失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("交换令牌失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("交换令牌失败")
 	}
 
 	// 解析响应
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		logger.Errorf(ctx, "解析令牌响应失败: %v", err)
+		facade.Errorf("解析令牌响应失败: %v", err)
 		return nil, err
 	}
 
@@ -78,7 +76,6 @@ func (c *Client) ExchangeToken(code string) (*TokenResponse, error) {
 
 // RefreshToken 刷新令牌
 func (c *Client) RefreshToken(refreshToken string) (*TokenResponse, error) {
-	ctx := context.Background()
 	// 构建请求体
 	data := url.Values{}
 	data.Add("grant_type", "refresh_token")
@@ -89,21 +86,21 @@ func (c *Client) RefreshToken(refreshToken string) (*TokenResponse, error) {
 	// 发送请求
 	resp, err := c.httpClient.PostForm(fmt.Sprintf("%s/token", c.config.Issuer), data)
 	if err != nil {
-		logger.Errorf(ctx, "刷新令牌请求失败: %v", err)
+		facade.Errorf("刷新令牌请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "刷新令牌失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("刷新令牌失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("刷新令牌失败")
 	}
 
 	// 解析响应
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		logger.Errorf(ctx, "解析令牌响应失败: %v", err)
+		facade.Errorf("解析令牌响应失败: %v", err)
 		return nil, err
 	}
 
@@ -112,7 +109,6 @@ func (c *Client) RefreshToken(refreshToken string) (*TokenResponse, error) {
 
 // IntrospectToken 验证令牌
 func (c *Client) IntrospectToken(token string) (*IntrospectResponse, error) {
-	ctx := context.Background()
 	// 构建请求体
 	data := url.Values{}
 	data.Add("token", token)
@@ -122,21 +118,21 @@ func (c *Client) IntrospectToken(token string) (*IntrospectResponse, error) {
 	// 发送请求
 	resp, err := c.httpClient.PostForm(fmt.Sprintf("%s/introspect", c.config.Issuer), data)
 	if err != nil {
-		logger.Errorf(ctx, "验证令牌请求失败: %v", err)
+		facade.Errorf("验证令牌请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "验证令牌失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("验证令牌失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("验证令牌失败")
 	}
 
 	// 解析响应
 	var introspectResp IntrospectResponse
 	if err := json.NewDecoder(resp.Body).Decode(&introspectResp); err != nil {
-		logger.Errorf(ctx, "解析验证响应失败: %v", err)
+		facade.Errorf("解析验证响应失败: %v", err)
 		return nil, err
 	}
 
@@ -145,11 +141,10 @@ func (c *Client) IntrospectToken(token string) (*IntrospectResponse, error) {
 
 // GetUserInfo 获取用户信息
 func (c *Client) GetUserInfo(accessToken string) (*UserInfoResponse, error) {
-	ctx := context.Background()
 	// 创建请求
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/userinfo", c.config.Issuer), nil)
 	if err != nil {
-		logger.Errorf(ctx, "创建用户信息请求失败: %v", err)
+		facade.Errorf("创建用户信息请求失败: %v", err)
 		return nil, err
 	}
 
@@ -159,21 +154,21 @@ func (c *Client) GetUserInfo(accessToken string) (*UserInfoResponse, error) {
 	// 发送请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		logger.Errorf(ctx, "获取用户信息请求失败: %v", err)
+		facade.Errorf("获取用户信息请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取用户信息失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取用户信息失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("获取用户信息失败")
 	}
 
 	// 解析响应
 	var userInfoResp UserInfoResponse
 	if err := json.NewDecoder(resp.Body).Decode(&userInfoResp); err != nil {
-		logger.Errorf(ctx, "解析用户信息响应失败: %v", err)
+		facade.Errorf("解析用户信息响应失败: %v", err)
 		return nil, err
 	}
 
@@ -182,7 +177,6 @@ func (c *Client) GetUserInfo(accessToken string) (*UserInfoResponse, error) {
 
 // Logout 登出
 func (c *Client) Logout(accessToken string) error {
-	ctx := context.Background()
 	// 构建请求体
 	data := url.Values{}
 	data.Add("token", accessToken)
@@ -190,14 +184,14 @@ func (c *Client) Logout(accessToken string) error {
 	// 发送请求
 	resp, err := c.httpClient.PostForm(fmt.Sprintf("%s/logout", c.config.Issuer), data)
 	if err != nil {
-		logger.Errorf(ctx, "登出请求失败: %v", err)
+		facade.Errorf("登出请求失败: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "登出失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("登出失败，状态码: %d", resp.StatusCode)
 		return errors.New("登出失败")
 	}
 
@@ -206,18 +200,17 @@ func (c *Client) Logout(accessToken string) error {
 
 // ThirdPartyLogin 第三方登录
 func (c *Client) ThirdPartyLogin(req *ThirdPartyLoginRequest) (*TokenResponse, error) {
-	ctx := context.Background()
 	// 构建请求体
 	data, err := json.Marshal(req)
 	if err != nil {
-		logger.Errorf(ctx, "序列化第三方登录请求失败: %v", err)
+		facade.Errorf("序列化第三方登录请求失败: %v", err)
 		return nil, err
 	}
 
 	// 创建请求
 	httpReq, err := http.NewRequest("POST", fmt.Sprintf("%s/user/third-party-login", c.config.Issuer), bytes.NewBuffer(data))
 	if err != nil {
-		logger.Errorf(ctx, "创建第三方登录请求失败: %v", err)
+		facade.Errorf("创建第三方登录请求失败: %v", err)
 		return nil, err
 	}
 
@@ -228,21 +221,21 @@ func (c *Client) ThirdPartyLogin(req *ThirdPartyLoginRequest) (*TokenResponse, e
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		logger.Errorf(ctx, "第三方登录请求失败: %v", err)
+		facade.Errorf("第三方登录请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "第三方登录失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("第三方登录失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("第三方登录失败")
 	}
 
 	// 解析响应
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		logger.Errorf(ctx, "解析第三方登录响应失败: %v", err)
+		facade.Errorf("解析第三方登录响应失败: %v", err)
 		return nil, err
 	}
 
@@ -251,18 +244,17 @@ func (c *Client) ThirdPartyLogin(req *ThirdPartyLoginRequest) (*TokenResponse, e
 
 // BiometricLogin 生物识别登录
 func (c *Client) BiometricLogin(req *BiometricLoginRequest) (*TokenResponse, error) {
-	ctx := context.Background()
 	// 构建请求体
 	data, err := json.Marshal(req)
 	if err != nil {
-		logger.Errorf(ctx, "序列化生物识别登录请求失败: %v", err)
+		facade.Errorf("序列化生物识别登录请求失败: %v", err)
 		return nil, err
 	}
 
 	// 创建请求
 	httpReq, err := http.NewRequest("POST", fmt.Sprintf("%s/user/biometric-login", c.config.Issuer), bytes.NewBuffer(data))
 	if err != nil {
-		logger.Errorf(ctx, "创建生物识别登录请求失败: %v", err)
+		facade.Errorf("创建生物识别登录请求失败: %v", err)
 		return nil, err
 	}
 
@@ -273,21 +265,21 @@ func (c *Client) BiometricLogin(req *BiometricLoginRequest) (*TokenResponse, err
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		logger.Errorf(ctx, "生物识别登录请求失败: %v", err)
+		facade.Errorf("生物识别登录请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "生物识别登录失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("生物识别登录失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("生物识别登录失败")
 	}
 
 	// 解析响应
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		logger.Errorf(ctx, "解析生物识别登录响应失败: %v", err)
+		facade.Errorf("解析生物识别登录响应失败: %v", err)
 		return nil, err
 	}
 
@@ -296,7 +288,6 @@ func (c *Client) BiometricLogin(req *BiometricLoginRequest) (*TokenResponse, err
 
 // GetWechatAuthURL 获取微信授权链接
 func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, error) {
-	ctx := context.Background()
 	
 	// 构建请求URL
 	params := url.Values{}
@@ -308,14 +299,14 @@ func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, err
 	// 发送请求
 	resp, err := http.Get(authURL)
 	if err != nil {
-		logger.Errorf(ctx, "获取微信授权链接失败: %v", err)
+		facade.Errorf("获取微信授权链接失败: %v", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 	
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取微信授权链接失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取微信授权链接失败，状态码: %d", resp.StatusCode)
 		return "", errors.New("获取微信授权链接失败")
 	}
 	
@@ -330,7 +321,7 @@ func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, err
 	}
 	
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		logger.Errorf(ctx, "解析微信授权链接响应失败: %v", err)
+		facade.Errorf("解析微信授权链接响应失败: %v", err)
 		return "", err
 	}
 	
@@ -339,7 +330,6 @@ func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, err
 
 // GetGitHubAuthURL 获取GitHub授权链接
 func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string, codeChallenge string, codeChallengeMethod string) (string, error) {
-	ctx := context.Background()
 	
 	// 构建请求URL
 	params := url.Values{}
@@ -354,14 +344,14 @@ func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string
 	// 发送请求
 	resp, err := http.Get(authURL)
 	if err != nil {
-		logger.Errorf(ctx, "获取GitHub授权链接失败: %v", err)
+		facade.Errorf("获取GitHub授权链接失败: %v", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 	
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取GitHub授权链接失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取GitHub授权链接失败，状态码: %d", resp.StatusCode)
 		return "", errors.New("获取GitHub授权链接失败")
 	}
 	
@@ -376,7 +366,7 @@ func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string
 	}
 	
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		logger.Errorf(ctx, "解析GitHub授权链接响应失败: %v", err)
+		facade.Errorf("解析GitHub授权链接响应失败: %v", err)
 		return "", err
 	}
 	
@@ -385,7 +375,6 @@ func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string
 
 // GetAlipayAuthURL 获取支付宝授权链接
 func (c *Client) GetAlipayAuthURL(redirectURI string, state string) (string, error) {
-	ctx := context.Background()
 	
 	// 构建请求URL
 	params := url.Values{}
@@ -397,14 +386,14 @@ func (c *Client) GetAlipayAuthURL(redirectURI string, state string) (string, err
 	// 发送请求
 	resp, err := http.Get(authURL)
 	if err != nil {
-		logger.Errorf(ctx, "获取支付宝授权链接失败: %v", err)
+		facade.Errorf("获取支付宝授权链接失败: %v", err)
 		return "", err
 	}
 	defer resp.Body.Close()
 	
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取支付宝授权链接失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取支付宝授权链接失败，状态码: %d", resp.StatusCode)
 		return "", errors.New("获取支付宝授权链接失败")
 	}
 	
@@ -419,7 +408,7 @@ func (c *Client) GetAlipayAuthURL(redirectURI string, state string) (string, err
 	}
 	
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		logger.Errorf(ctx, "解析支付宝授权链接响应失败: %v", err)
+		facade.Errorf("解析支付宝授权链接响应失败: %v", err)
 		return "", err
 	}
 	
@@ -428,18 +417,17 @@ func (c *Client) GetAlipayAuthURL(redirectURI string, state string) (string, err
 
 // StartScanCodeLogin 开始扫码登录
 func (c *Client) StartScanCodeLogin(req *ScanCodeLoginRequest) (*ScanCodeLoginResponse, error) {
-	ctx := context.Background()
 	// 构建请求体
 	data, err := json.Marshal(req)
 	if err != nil {
-		logger.Errorf(ctx, "序列化扫码登录请求失败: %v", err)
+		facade.Errorf("序列化扫码登录请求失败: %v", err)
 		return nil, err
 	}
 
 	// 创建请求
 	httpReq, err := http.NewRequest("POST", fmt.Sprintf("%s/user/scan-code-login", c.config.Issuer), bytes.NewBuffer(data))
 	if err != nil {
-		logger.Errorf(ctx, "创建扫码登录请求失败: %v", err)
+		facade.Errorf("创建扫码登录请求失败: %v", err)
 		return nil, err
 	}
 
@@ -449,21 +437,21 @@ func (c *Client) StartScanCodeLogin(req *ScanCodeLoginRequest) (*ScanCodeLoginRe
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		logger.Errorf(ctx, "扫码登录请求失败: %v", err)
+		facade.Errorf("扫码登录请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "扫码登录失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("扫码登录失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("扫码登录失败")
 	}
 
 	// 解析响应
 	var scanCodeResp ScanCodeLoginResponse
 	if err := json.NewDecoder(resp.Body).Decode(&scanCodeResp); err != nil {
-		logger.Errorf(ctx, "解析扫码登录响应失败: %v", err)
+		facade.Errorf("解析扫码登录响应失败: %v", err)
 		return nil, err
 	}
 
@@ -472,18 +460,17 @@ func (c *Client) StartScanCodeLogin(req *ScanCodeLoginRequest) (*ScanCodeLoginRe
 
 // VerifyScanCodeLogin 验证扫码登录
 func (c *Client) VerifyScanCodeLogin(req *ScanCodeVerifyRequest, accessToken string) error {
-	ctx := context.Background()
 	// 构建请求体
 	data, err := json.Marshal(req)
 	if err != nil {
-		logger.Errorf(ctx, "序列化扫码验证请求失败: %v", err)
+		facade.Errorf("序列化扫码验证请求失败: %v", err)
 		return err
 	}
 
 	// 创建请求
 	httpReq, err := http.NewRequest("POST", fmt.Sprintf("%s/user/scan-code-login/verify", c.config.Issuer), bytes.NewBuffer(data))
 	if err != nil {
-		logger.Errorf(ctx, "创建扫码验证请求失败: %v", err)
+		facade.Errorf("创建扫码验证请求失败: %v", err)
 		return err
 	}
 
@@ -494,14 +481,14 @@ func (c *Client) VerifyScanCodeLogin(req *ScanCodeVerifyRequest, accessToken str
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		logger.Errorf(ctx, "扫码验证请求失败: %v", err)
+		facade.Errorf("扫码验证请求失败: %v", err)
 		return err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "扫码验证失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("扫码验证失败，状态码: %d", resp.StatusCode)
 		return errors.New("扫码验证失败")
 	}
 
@@ -510,11 +497,10 @@ func (c *Client) VerifyScanCodeLogin(req *ScanCodeVerifyRequest, accessToken str
 
 // CheckScanCodeStatus 检查扫码登录状态
 func (c *Client) CheckScanCodeStatus(req *ScanCodeStatusRequest) (*ScanCodeStatusResponse, error) {
-	ctx := context.Background()
 	// 创建请求
 	httpReq, err := http.NewRequest("GET", fmt.Sprintf("%s/user/scan-code-login/status", c.config.Issuer), nil)
 	if err != nil {
-		logger.Errorf(ctx, "创建扫码状态请求失败: %v", err)
+		facade.Errorf("创建扫码状态请求失败: %v", err)
 		return nil, err
 	}
 
@@ -526,21 +512,21 @@ func (c *Client) CheckScanCodeStatus(req *ScanCodeStatusRequest) (*ScanCodeStatu
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		logger.Errorf(ctx, "扫码状态请求失败: %v", err)
+		facade.Errorf("扫码状态请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "扫码状态失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("扫码状态失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("扫码状态失败")
 	}
 
 	// 解析响应
 	var statusResp ScanCodeStatusResponse
 	if err := json.NewDecoder(resp.Body).Decode(&statusResp); err != nil {
-		logger.Errorf(ctx, "解析扫码状态响应失败: %v", err)
+		facade.Errorf("解析扫码状态响应失败: %v", err)
 		return nil, err
 	}
 
@@ -549,18 +535,17 @@ func (c *Client) CheckScanCodeStatus(req *ScanCodeStatusRequest) (*ScanCodeStatu
 
 // CompleteScanCodeLogin 完成扫码登录
 func (c *Client) CompleteScanCodeLogin(req *ScanCodeCompleteRequest, accessToken string) (*TokenResponse, error) {
-	ctx := context.Background()
 	// 构建请求体
 	data, err := json.Marshal(req)
 	if err != nil {
-		logger.Errorf(ctx, "序列化扫码完成请求失败: %v", err)
+		facade.Errorf("序列化扫码完成请求失败: %v", err)
 		return nil, err
 	}
 
 	// 创建请求
 	httpReq, err := http.NewRequest("POST", fmt.Sprintf("%s/user/scan-code-login/complete", c.config.Issuer), bytes.NewBuffer(data))
 	if err != nil {
-		logger.Errorf(ctx, "创建扫码完成请求失败: %v", err)
+		facade.Errorf("创建扫码完成请求失败: %v", err)
 		return nil, err
 	}
 
@@ -571,21 +556,21 @@ func (c *Client) CompleteScanCodeLogin(req *ScanCodeCompleteRequest, accessToken
 	// 发送请求
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		logger.Errorf(ctx, "扫码完成请求失败: %v", err)
+		facade.Errorf("扫码完成请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "扫码完成失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("扫码完成失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("扫码完成失败")
 	}
 
 	// 解析响应
 	var tokenResp TokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		logger.Errorf(ctx, "解析扫码完成响应失败: %v", err)
+		facade.Errorf("解析扫码完成响应失败: %v", err)
 		return nil, err
 	}
 
@@ -594,11 +579,10 @@ func (c *Client) CompleteScanCodeLogin(req *ScanCodeCompleteRequest, accessToken
 
 // GetAuditLogs 获取审计日志
 func (c *Client) GetAuditLogs(accessToken string, page, size int, eventType, userID, ip, status string, startTime, endTime string) ([]AuditLogEntry, error) {
-	ctx := context.Background()
 	// 创建请求
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/audit/list", c.config.Issuer), nil)
 	if err != nil {
-		logger.Errorf(ctx, "创建审计日志请求失败: %v", err)
+		facade.Errorf("创建审计日志请求失败: %v", err)
 		return nil, err
 	}
 
@@ -632,21 +616,21 @@ func (c *Client) GetAuditLogs(accessToken string, page, size int, eventType, use
 	// 发送请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		logger.Errorf(ctx, "获取审计日志请求失败: %v", err)
+		facade.Errorf("获取审计日志请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取审计日志失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取审计日志失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("获取审计日志失败")
 	}
 
 	// 解析响应
 	var logs []AuditLogEntry
 	if err := json.NewDecoder(resp.Body).Decode(&logs); err != nil {
-		logger.Errorf(ctx, "解析审计日志响应失败: %v", err)
+		facade.Errorf("解析审计日志响应失败: %v", err)
 		return nil, err
 	}
 
@@ -655,11 +639,10 @@ func (c *Client) GetAuditLogs(accessToken string, page, size int, eventType, use
 
 // GetSystemStatus 获取系统状态
 func (c *Client) GetSystemStatus(accessToken string) (*SystemStatusResponse, error) {
-	ctx := context.Background()
 	// 创建请求
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/monitor/system/status", c.config.Issuer), nil)
 	if err != nil {
-		logger.Errorf(ctx, "创建系统状态请求失败: %v", err)
+		facade.Errorf("创建系统状态请求失败: %v", err)
 		return nil, err
 	}
 
@@ -669,21 +652,21 @@ func (c *Client) GetSystemStatus(accessToken string) (*SystemStatusResponse, err
 	// 发送请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		logger.Errorf(ctx, "获取系统状态请求失败: %v", err)
+		facade.Errorf("获取系统状态请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取系统状态失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取系统状态失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("获取系统状态失败")
 	}
 
 	// 解析响应
 	var statusResp SystemStatusResponse
 	if err := json.NewDecoder(resp.Body).Decode(&statusResp); err != nil {
-		logger.Errorf(ctx, "解析系统状态响应失败: %v", err)
+		facade.Errorf("解析系统状态响应失败: %v", err)
 		return nil, err
 	}
 
@@ -692,11 +675,10 @@ func (c *Client) GetSystemStatus(accessToken string) (*SystemStatusResponse, err
 
 // GetAuthMetrics 获取认证指标
 func (c *Client) GetAuthMetrics(accessToken string) ([]MetricEntry, error) {
-	ctx := context.Background()
 	// 创建请求
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/monitor/auth/metrics", c.config.Issuer), nil)
 	if err != nil {
-		logger.Errorf(ctx, "创建认证指标请求失败: %v", err)
+		facade.Errorf("创建认证指标请求失败: %v", err)
 		return nil, err
 	}
 
@@ -706,21 +688,21 @@ func (c *Client) GetAuthMetrics(accessToken string) ([]MetricEntry, error) {
 	// 发送请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		logger.Errorf(ctx, "获取认证指标请求失败: %v", err)
+		facade.Errorf("获取认证指标请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取认证指标失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取认证指标失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("获取认证指标失败")
 	}
 
 	// 解析响应
 	var metrics []MetricEntry
 	if err := json.NewDecoder(resp.Body).Decode(&metrics); err != nil {
-		logger.Errorf(ctx, "解析认证指标响应失败: %v", err)
+		facade.Errorf("解析认证指标响应失败: %v", err)
 		return nil, err
 	}
 
@@ -729,11 +711,10 @@ func (c *Client) GetAuthMetrics(accessToken string) ([]MetricEntry, error) {
 
 // GetTokenMetrics 获取令牌指标
 func (c *Client) GetTokenMetrics(accessToken string) ([]MetricEntry, error) {
-	ctx := context.Background()
 	// 创建请求
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/monitor/token/metrics", c.config.Issuer), nil)
 	if err != nil {
-		logger.Errorf(ctx, "创建令牌指标请求失败: %v", err)
+		facade.Errorf("创建令牌指标请求失败: %v", err)
 		return nil, err
 	}
 
@@ -743,21 +724,21 @@ func (c *Client) GetTokenMetrics(accessToken string) ([]MetricEntry, error) {
 	// 发送请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		logger.Errorf(ctx, "获取令牌指标请求失败: %v", err)
+		facade.Errorf("获取令牌指标请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取令牌指标失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取令牌指标失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("获取令牌指标失败")
 	}
 
 	// 解析响应
 	var metrics []MetricEntry
 	if err := json.NewDecoder(resp.Body).Decode(&metrics); err != nil {
-		logger.Errorf(ctx, "解析令牌指标响应失败: %v", err)
+		facade.Errorf("解析令牌指标响应失败: %v", err)
 		return nil, err
 	}
 
@@ -766,11 +747,10 @@ func (c *Client) GetTokenMetrics(accessToken string) ([]MetricEntry, error) {
 
 // GetAnomalyEvents 获取异常事件
 func (c *Client) GetAnomalyEvents(accessToken string, severity string) ([]AnomalyEvent, error) {
-	ctx := context.Background()
 	// 创建请求
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/monitor/anomaly/events", c.config.Issuer), nil)
 	if err != nil {
-		logger.Errorf(ctx, "创建异常事件请求失败: %v", err)
+		facade.Errorf("创建异常事件请求失败: %v", err)
 		return nil, err
 	}
 
@@ -787,21 +767,21 @@ func (c *Client) GetAnomalyEvents(accessToken string, severity string) ([]Anomal
 	// 发送请求
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		logger.Errorf(ctx, "获取异常事件请求失败: %v", err)
+		facade.Errorf("获取异常事件请求失败: %v", err)
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "获取异常事件失败，状态码: %d", resp.StatusCode)
+		facade.Errorf("获取异常事件失败，状态码: %d", resp.StatusCode)
 		return nil, errors.New("获取异常事件失败")
 	}
 
 	// 解析响应
 	var events []AnomalyEvent
 	if err := json.NewDecoder(resp.Body).Decode(&events); err != nil {
-		logger.Errorf(ctx, "解析异常事件响应失败: %v", err)
+		facade.Errorf("解析异常事件响应失败: %v", err)
 		return nil, err
 	}
 

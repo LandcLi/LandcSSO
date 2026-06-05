@@ -1,0 +1,57 @@
+server:
+  addr: "0.0.0.0"
+  port: 8080
+
+database:
+  driver: "mysql"
+  dsn: "test_user:Dmc@2026@tcp(9.134.133.93:3306)/test_db?charset=utf8mb4&parseTime=True&loc=Local"
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600
+
+# SSO-specific config (read by utility/config.GetConfig)
+jwt:
+  secret: "your-secret-key"
+  issuer: "sso-server"
+  accessTokenExpiry: 1800
+  refreshTokenExpiry: 86400
+
+thirdParty:
+  wechat:
+    appId: "your-wechat-appid"
+    appSecret: "your-wechat-appsecret"
+    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+  dingtalk:
+    appId: "your-dingtalk-appid"
+    appSecret: "your-dingtalk-appsecret"
+    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+  github:
+    clientId: "your-github-clientid"
+    clientSecret: "your-github-clientsecret"
+    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+  alipay:
+    appId: "your-alipay-appid"
+    appSecret: "your-alipay-appsecret"
+    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+
+mail:
+  host: "smtp.example.com"
+  port: 587
+  username: "your-email@example.com"
+  password: "your-password"
+  from: "your-email@example.com"
+  useSSL: false
+
+sms:
+  provider: "aliyun"
+  apiKey: "your-api-key"
+  secretKey: "your-api-secret"
+  signName: "your-sign-name"
+  templates:
+    verifyCode: "SMS_123456789"
+
+log:
+  provider: "console"
+  level: "info"
+  format: "text"
+  outputPath: "stdout"

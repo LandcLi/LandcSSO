@@ -124,7 +124,7 @@ func LoadConfig(path string) (*Config, error) {
 
 func GetConfig() *Config {
 	if globalConfig == nil {
-		if cfg, err := LoadConfig("config.yml"); err == nil {
+		if cfg, err := LoadConfig("config.yaml"); err == nil {
 			globalConfig = cfg
 		}
 	}

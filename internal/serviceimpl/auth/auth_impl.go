@@ -18,7 +18,7 @@ import (
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/LandcLi/LandcSSO/utility/config"
-	"github.com/LandcLi/LandcSSO/utility/logger"
+	"github.com/LandcLi/landc-go/log/facade"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/golang-jwt/jwt/v5"
@@ -50,11 +50,11 @@ func NewAuthServiceImpl() *authServiceImpl {
 	if service.config.JWT.PrivateKeyPath != "" && service.config.JWT.PublicKeyPath != "" {
 		privateKey, err := os.ReadFile(service.config.JWT.PrivateKeyPath)
 		if err != nil {
-			logger.Errorf(context.Background(), "读取私钥文件失败: %v", err)
+			facade.Errorf("读取私钥文件失败: %v", err)
 		} else {
 			privateKeyObj, err := jwt.ParseRSAPrivateKeyFromPEM(privateKey)
 			if err != nil {
-				logger.Errorf(context.Background(), "解析私钥失败: %v", err)
+				facade.Errorf("解析私钥失败: %v", err)
 			} else {
 				service.privateKey = privateKeyObj
 			}
@@ -62,11 +62,11 @@ func NewAuthServiceImpl() *authServiceImpl {
 
 		publicKey, err := os.ReadFile(service.config.JWT.PublicKeyPath)
 		if err != nil {
-			logger.Errorf(context.Background(), "读取公钥文件失败: %v", err)
+			facade.Errorf("读取公钥文件失败: %v", err)
 		} else {
 			publicKeyObj, err := jwt.ParseRSAPublicKeyFromPEM(publicKey)
 			if err != nil {
-				logger.Errorf(context.Background(), "解析公钥失败: %v", err)
+				facade.Errorf("解析公钥失败: %v", err)
 			} else {
 				service.publicKey = publicKeyObj
 			}
@@ -270,7 +270,7 @@ func (s *authServiceImpl) checkConcurrentSessions(userID uint) error {
 			oldestToken.Revoked = true
 			_, err := dao.GetTokenDao().Update(oldestToken)
 			if err != nil {
-				logger.Errorf(context.Background(), "撤销旧令牌失败: %v", err)
+				facade.Errorf("撤销旧令牌失败: %v", err)
 			}
 		}
 	}
@@ -488,8 +488,7 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string,
 	token.Revoked = true
 	_, err = dao.GetTokenDao().Update(token)
 	if err != nil {
-		ctx := context.Background()
-		logger.Errorf(ctx, "撤销旧令牌失败: %v", err)
+		facade.Errorf("撤销旧令牌失败: %v", err)
 	}
 
 	return newTokens, nil
@@ -549,12 +548,11 @@ func (s *authServiceImpl) revokeUserTokens(userID uint) error {
 
 // notifyClients 通知所有已登录的应用
 func (s *authServiceImpl) notifyClients(userID uint) error {
-	ctx := context.Background()
 
 	// 1. 查询用户的所有活跃令牌
 	tokens, err := dao.GetTokenDao().FindByUserID(userID)
 	if err != nil {
-		logger.Errorf(ctx, "查询用户活跃令牌失败: %v", err)
+		facade.Errorf("查询用户活跃令牌失败: %v", err)
 		return err
 	}
 
@@ -571,7 +569,7 @@ func (s *authServiceImpl) notifyClients(userID uint) error {
 		// 获取客户端信息
 		client, err := service.GetClientService().GetByClientID(clientID)
 		if err != nil {
-			logger.Errorf(ctx, "获取客户端信息失败: %v", err)
+			facade.Errorf("获取客户端信息失败: %v", err)
 			continue
 		}
 
@@ -596,7 +594,6 @@ func (s *authServiceImpl) notifyClients(userID uint) error {
 
 // sendLogoutNotification 发送登出通知
 func (s *authServiceImpl) sendLogoutNotification(url string) {
-	ctx := context.Background()
 
 	// 创建HTTP客户端
 	client := &http.Client{
@@ -606,18 +603,18 @@ func (s *authServiceImpl) sendLogoutNotification(url string) {
 	// 发送GET请求
 	resp, err := client.Get(url)
 	if err != nil {
-		logger.Errorf(ctx, "发送登出通知失败: %v, URL: %s", err, url)
+		facade.Errorf("发送登出通知失败: %v, URL: %s", err, url)
 		return
 	}
 	defer resp.Body.Close()
 
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
-		logger.Errorf(ctx, "登出通知响应失败: %s, URL: %s", resp.Status, url)
+		facade.Errorf("登出通知响应失败: %s, URL: %s", resp.Status, url)
 		return
 	}
 
-	logger.Infof(ctx, "登出通知发送成功: %s", url)
+	facade.Infof("登出通知发送成功: %s", url)
 }
 
 // GenerateAuthorizationCode 生成授权码

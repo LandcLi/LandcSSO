@@ -1,13 +1,12 @@
 package audit
 
 import (
-	"context"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/dao"
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
-	"github.com/LandcLi/LandcSSO/utility/logger"
+	"github.com/LandcLi/landc-go/log/facade"
 )
 
 type auditServiceImpl struct {
@@ -24,7 +23,6 @@ func init() {
 }
 
 func (s *auditServiceImpl) LogEvent(eventType string, userID uint, username string, ip string, userAgent string, details string, status string) error {
-	ctx := context.Background()
 	event := &model.AuditEvent{
 		EventType: eventType,
 		UserID:    userID,
@@ -38,11 +36,11 @@ func (s *auditServiceImpl) LogEvent(eventType string, userID uint, username stri
 
 	_, err := dao.GetAuditDao().Create(event)
 	if err != nil {
-		logger.Errorf(ctx, "记录审计事件失败: %v", err)
+		facade.Errorf("记录审计事件失败: %v", err)
 		return err
 	}
 
-	logger.Info(ctx, "审计事件")
+	facade.Info("审计事件")
 
 	return nil
 }

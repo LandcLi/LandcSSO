@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/LandcLi/LandcSSO/service"
-	"github.com/LandcLi/LandcSSO/utility/logger"
+	"github.com/LandcLi/landc-go/log/facade"
 )
 
 // -------------------------- 微信专属Config（内部屏蔽，不对外暴露） --------------------------
@@ -96,7 +96,7 @@ func (w *wechatAdapter) RefreshAccessToken(ctx context.Context, accessToken, ref
 	// 发送请求
 	refreshResp, err := http.Get(refreshURL + "?" + refreshParams)
 	if err != nil {
-		logger.Errorf(ctx, "刷新微信access_token失败: %v", err)
+		facade.Errorf("刷新微信access_token失败: %v", err)
 		return "", errors.New("刷新微信令牌失败")
 	}
 	defer refreshResp.Body.Close()
@@ -113,12 +113,12 @@ func (w *wechatAdapter) RefreshAccessToken(ctx context.Context, accessToken, ref
 	}
 
 	if err := json.NewDecoder(refreshResp.Body).Decode(&refreshData); err != nil {
-		logger.Errorf(ctx, "解析微信刷新token响应失败: %v", err)
+		facade.Errorf("解析微信刷新token响应失败: %v", err)
 		return "", errors.New("解析微信刷新令牌响应失败")
 	}
 
 	if refreshData.Errcode != 0 {
-		logger.Errorf(ctx, "微信API错误: %d, %s", refreshData.Errcode, refreshData.Errmsg)
+		facade.Errorf("微信API错误: %d, %s", refreshData.Errcode, refreshData.Errmsg)
 		return "", errors.New("微信API错误: " + refreshData.Errmsg)
 	}
 
@@ -142,7 +142,7 @@ func (w *wechatAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, cod
 	// 发送请求
 	fetchResp, err := http.Get(fetchURL + "?" + fetchParams)
 	if err != nil {
-		logger.Errorf(ctx, "获取微信access_token失败: %v", err)
+		facade.Errorf("获取微信access_token失败: %v", err)
 		return "", "", "", errors.New("获取微信令牌失败")
 	}
 	defer fetchResp.Body.Close()
@@ -157,11 +157,11 @@ func (w *wechatAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, cod
 		Errmsg       string `json:"errmsg"`
 	}
 	if err := json.NewDecoder(fetchResp.Body).Decode(&fetchData); err != nil {
-		logger.Errorf(ctx, "解析微信获取token响应失败: %v", err)
+		facade.Errorf("解析微信获取token响应失败: %v", err)
 		return "", "", "", errors.New("解析微信获取令牌响应失败")
 	}
 	if fetchData.Errcode != 0 {
-		logger.Errorf(ctx, "微信API错误: %d, %s", fetchData.Errcode, fetchData.Errmsg)
+		facade.Errorf("微信API错误: %d, %s", fetchData.Errcode, fetchData.Errmsg)
 		return "", "", "", errors.New("微信API错误: " + fetchData.Errmsg)
 	}
 	// 返回access_token、refresh_token和openId
