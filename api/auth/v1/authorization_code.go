@@ -1,7 +1,9 @@
 package v1
 
-// AuthorizationCodeRequest 授权码请求结构
+import "github.com/LandcLi/landc-go/frame/pkg/meta"
+
 type AuthorizationCodeRequest struct {
+	meta.Meta           `path:"/auth/authorize" method:"POST"`
 	ClientID            string `json:"client_id" binding:"required"`
 	RedirectURI         string `json:"redirect_uri" binding:"required"`
 	ResponseType        string `json:"response_type" binding:"required"`
@@ -17,15 +19,14 @@ type AuthorizationCodeResponse struct {
 	State       string `json:"state"`
 }
 
-// ValidateAuthorizationCodeRequest 验证授权码请求结构
 type ValidateAuthorizationCodeRequest struct {
+	meta.Meta    `path:"/auth/verify-auth-code" method:"POST"`
 	Code         string `json:"code" binding:"required"`
 	ClientID     string `json:"client_id" binding:"required"`
 	RedirectURI  string `json:"redirect_uri" binding:"required"`
 	CodeVerifier string `json:"code_verifier"`
 }
 
-// GenerateAuthCodeResponse 生成授权码响应结构
 type GenerateAuthCodeResponse struct {
 	Code string `json:"code"`
 }

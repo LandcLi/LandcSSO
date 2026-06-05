@@ -1,15 +1,16 @@
 package v1
 
-// ThirdPartyAuthURLRequest 获取第三方认证链接请求结构
+import "github.com/LandcLi/landc-go/frame/pkg/meta"
+
 type ThirdPartyAuthURLRequest struct {
-	Provider    string            `json:"provider" binding:"required"` // 第三方提供商，如"wechat"
+	meta.Meta    `path:"/auth/third-party-login" method:"POST"`
+	Provider    string            `json:"provider" binding:"required"`
 	RedirectURI string            `json:"redirect_uri" binding:"required"`
 	State       string            `json:"state"`
 	Scope       string            `json:"scope"`
-	Params      map[string]string `json:"params"` // 额外参数
+	Params      map[string]string `json:"params"`
 }
 
-// ThirdPartyAuthURLResponse 获取第三方认证链接响应结构
 type ThirdPartyAuthURLResponse struct {
 	AuthURL string `json:"auth_url"`
 }

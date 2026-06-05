@@ -5,10 +5,22 @@ import (
 	"time"
 
 	"github.com/LandcLi/LandcSSO/utility/logger"
-	apiMiddleware "github.com/LandcLi/landc-go/api/middleware/gin"
+	apiMiddleware 	"github.com/LandcLi/landc-go/api/middleware/gin"
 
 	"github.com/gin-gonic/gin"
 )
+
+// CtxEnricherMiddleware extracts request info and stores in context for Handler to use.
+func CtxEnricherMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		ctx := c.Request.Context()
+		ctx = context.WithValue(ctx, "IP", c.ClientIP())
+		ctx = context.WithValue(ctx, "DeviceFingerprint", c.GetHeader("X-Device-Fingerprint"))
+		ctx = context.WithValue(ctx, "UserAgent", c.GetHeader("User-Agent"))
+		c.Request = c.Request.WithContext(ctx)
+		c.Next()
+	}
+}
 
 // Cors 跨域中间件
 func Cors() gin.HandlerFunc {

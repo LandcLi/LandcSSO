@@ -1,14 +1,17 @@
 package v1
 
-import "time"
+import (
+	"time"
 
-// ClientListRequest 客户端列表请求
+	"github.com/LandcLi/landc-go/frame/pkg/meta"
+)
+
 type ClientListRequest struct {
+	meta.Meta `path:"/client/list" method:"GET"`
 	Page     int `json:"page" form:"page" binding:"min=1"`
 	PageSize int `json:"page_size" form:"page_size" binding:"min=1,max=100"`
 }
 
-// ClientListResponse 客户端列表响应
 type ClientListResponse struct {
 	List     []ClientResponse `json:"list"`
 	Total    int64            `json:"total"`
@@ -16,7 +19,6 @@ type ClientListResponse struct {
 	PageSize int              `json:"page_size"`
 }
 
-// ClientResponse 客户端响应
 type ClientResponse struct {
 	ID                      uint      `json:"id"`
 	ClientID                string    `json:"client_id"`

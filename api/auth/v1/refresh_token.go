@@ -1,7 +1,9 @@
 package v1
 
-// RefreshTokenRequest 刷新令牌请求结构
+import "github.com/LandcLi/landc-go/frame/pkg/meta"
+
 type RefreshTokenRequest struct {
+	meta.Meta    `path:"/auth/refresh-token" method:"POST"`
 	RefreshToken string `json:"refresh_token" binding:"required"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`

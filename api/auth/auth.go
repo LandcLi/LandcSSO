@@ -33,24 +33,8 @@ func RequestInfoEnricher(ctx context.Context, c *gin.Context) context.Context {
 	return ctx
 }
 
-// AuthRoutes maps controller methods to HTTP endpoints.
-var AuthRoutes = di.Routes{
-	"Login":                    {Method: "POST", Path: "/auth/login", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
-	"ExchangeTempToken":        {Method: "POST", Path: "/auth/exchange-temp-token", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
-	"RefreshToken":             {Method: "POST", Path: "/auth/refresh-token", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
-	"RevokeToken":              {Method: "POST", Path: "/auth/revoke-token"},
-	"Logout":                   {Method: "POST", Path: "/auth/logout", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
-	"GenerateAuthorizationCode": {Method: "POST", Path: "/auth/generate-auth-code", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
-	"ValidateAuthorizationCode": {Method: "POST", Path: "/auth/verify-auth-code"},
-	"GetThirdPartyAuthURL":     {Method: "POST", Path: "/auth/third-party-login"},
-	"Authorize":                {Method: "POST", Path: "/auth/authorize", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
-	"Token":                    {Method: "POST", Path: "/auth/token", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
-	"Introspect":               {Method: "POST", Path: "/auth/introspect", CtxEnrichers: []di.CtxEnricher{RequestInfoEnricher}},
-	"GetJWKS":                  {Method: "GET", Path: "/auth/jwks"},
-}
-
 // AuthGateway is the service gateway for authentication.
-var AuthGateway = di.NewGateway[AuthController]("auth.controller", AuthRoutes)
+var AuthGateway = di.NewGateway[AuthController]("auth.controller")
 
 // GetAuthController returns the registered AuthController implementation.
 func GetAuthController() AuthController {

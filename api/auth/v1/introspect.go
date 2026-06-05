@@ -1,13 +1,14 @@
 package v1
 
-// IntrospectRequest 令牌验证请求结构
+import "github.com/LandcLi/landc-go/frame/pkg/meta"
+
 type IntrospectRequest struct {
+	meta.Meta    `path:"/auth/introspect" method:"POST"`
 	Token        string `json:"token" binding:"required"`
 	ClientID     string `json:"client_id"`
 	ClientSecret string `json:"client_secret"`
 }
 
-// IntrospectResponse 令牌验证响应结构
 type IntrospectResponse struct {
 	Active     bool   `json:"active"`
 	Scope      string `json:"scope,omitempty"`
