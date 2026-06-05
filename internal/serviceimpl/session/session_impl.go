@@ -11,7 +11,7 @@ import (
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/LandcLi/LandcSSO/utility/logger"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 )
 
 type sessionServiceImpl struct {

@@ -5,10 +5,14 @@ server:
 
 database:
   driver: "mysql"
-  host: "localhost"
+  host: "9.134.133.93"
   port: 3306
-  user: "root"
-  password: "root"
+  user: "test_user"
+  password: "Dmc@2026"
+  dbname: "sso"
+  charset: "utf8mb4"
+  parseTime: true
+  loc: "Local"
   dbname: "sso"
   charset: "utf8mb4"
   parseTime: true
