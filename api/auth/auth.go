@@ -16,7 +16,7 @@ type AuthController interface {
 	RefreshToken(ctx context.Context, req *v1.RefreshTokenRequest) (*v1.TokenResponse, error)
 	RevokeToken(ctx context.Context, req *v1.RevokeTokenRequest) error
 	Logout(ctx context.Context, req *v1.LogoutRequest) error
-	GenerateAuthorizationCode(ctx context.Context, req *v1.AuthorizationCodeRequest) (*v1.GenerateAuthCodeResponse, error)
+	GenerateAuthorizationCode(ctx context.Context, req *v1.GenerateAuthorizationCodeRequest) (*v1.GenerateAuthCodeResponse, error)
 	ValidateAuthorizationCode(ctx context.Context, req *v1.ValidateAuthorizationCodeRequest) (*model.AuthorizationCode, error)
 	GetThirdPartyAuthURL(ctx context.Context, req *v1.ThirdPartyAuthURLRequest) (*v1.ThirdPartyAuthURLResponse, error)
 	Authorize(ctx context.Context, req *v1.AuthorizationCodeRequest) (*v1.AuthorizationCodeResponse, error)

@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"reflect"
 	"time"
 
 	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
@@ -20,7 +21,6 @@ import (
 	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/LandcLi/landc-go/log/facade"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -125,8 +125,9 @@ func (s *authServiceImpl) generateTempToken(ctx context.Context, userID uint, ip
 		return nil, errors.New("临时令牌生成失败")
 	}
 
-	// 存储临时token信息到Redis，以便后续验证
-	if config.GetRedis() != nil {
+	// 存储临时token信息到Redis（可选），以便后续验证
+	rc := config.GetRedis()
+	if rc != nil && !reflect.ValueOf(rc).IsNil() {
 		tempTokenKey := fmt.Sprintf("temp_token:%s", tokenString)
 		tempTokenData := map[string]interface{}{
 			"user_id":            userID,
@@ -135,7 +136,7 @@ func (s *authServiceImpl) generateTempToken(ctx context.Context, userID uint, ip
 			"created_at":         time.Now().Unix(),
 		}
 		tempTokenJSON, _ := json.Marshal(tempTokenData)
-		config.GetRedis().Set(ctx, tempTokenKey, tempTokenJSON, 30*time.Minute)
+		rc.Set(ctx, tempTokenKey, tempTokenJSON, 30*time.Minute)
 	}
 
 	return &model.TokenResponse{
@@ -149,37 +150,30 @@ func (s *authServiceImpl) generateTempToken(ctx context.Context, userID uint, ip
 
 // ExchangeTempToken 兑换临时token为正式token
 func (s *authServiceImpl) ExchangeTempToken(ctx context.Context, tempToken string, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
-
-	// 验证临时token
-	if config.GetRedis() == nil {
-		return nil, errors.New("Redis未初始化")
-	}
-
-	tempTokenKey := fmt.Sprintf("temp_token:%s", tempToken)
-	tempTokenDataJSON, err := config.GetRedis().Get(ctx, tempTokenKey).Bytes()
-	if err != nil {
-		if err == redis.Nil {
-			return nil, errors.New("临时令牌不存在或已过期")
+	// 优先从Redis验证（如果可用）
+	rc := config.GetRedis()
+	if rc != nil && !reflect.ValueOf(rc).IsNil() {
+		tempTokenKey := fmt.Sprintf("temp_token:%s", tempToken)
+		tempTokenDataJSON, err := rc.Get(ctx, tempTokenKey).Bytes()
+		if err == nil {
+			var tempTokenData map[string]interface{}
+			if err := json.Unmarshal(tempTokenDataJSON, &tempTokenData); err == nil {
+				if userID, ok := tempTokenData["user_id"].(float64); ok {
+					// 删除临时token
+					rc.Del(ctx, tempTokenKey)
+					return s.generateTokens(ctx, uint(userID), "", ip, deviceFingerprint)
+				}
+			}
 		}
-		return nil, errors.New("验证临时令牌失败")
 	}
 
-	// 解析临时token数据
-	var tempTokenData map[string]interface{}
-	if err := json.Unmarshal(tempTokenDataJSON, &tempTokenData); err != nil {
-		return nil, errors.New("解析临时令牌数据失败")
+	// Redis不可用或验证失败时，直接验证JWT获取用户ID
+	claims, err := s.ValidateToken(ctx, tempToken, ip, deviceFingerprint)
+	if err != nil {
+		return nil, errors.New("临时令牌不存在或已过期")
 	}
 
-	userID, ok := tempTokenData["user_id"].(float64)
-	if !ok {
-		return nil, errors.New("无效的用户ID")
-	}
-
-	// 删除临时token
-	config.GetRedis().Del(ctx, tempTokenKey)
-
-	// 生成正式令牌
-	return s.generateTokens(ctx, uint(userID), "", ip, deviceFingerprint)
+	return s.generateTokens(ctx, claims.UserID, "", ip, deviceFingerprint)
 }
 
 // generateTokens 生成令牌

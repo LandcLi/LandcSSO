@@ -141,5 +141,9 @@ func GetDB() *gorm.DB {
 
 // GetRedis delegates to the framework's Redis cache.
 func GetRedis() *redis.Client {
-	return framecache.GetRedis()
+	rc := framecache.GetRedis()
+	if rc == nil {
+		return nil
+	}
+	return rc
 }

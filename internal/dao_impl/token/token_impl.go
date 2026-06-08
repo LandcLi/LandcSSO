@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/dao"
@@ -13,16 +14,22 @@ import (
 	"gorm.io/gorm"
 )
 
-type tokenDaoImpl struct {
-	db          *gorm.DB
-	redisClient redis.UniversalClient
-}
+type tokenDaoImpl struct{}
 
 func NewTokenDaoImpl() *tokenDaoImpl {
-	return &tokenDaoImpl{
-		db:          config.GetDB(),
-		redisClient: config.GetRedis(),
+	return &tokenDaoImpl{}
+}
+
+func (r *tokenDaoImpl) getDB() *gorm.DB {
+	return config.GetDB()
+}
+
+func (r *tokenDaoImpl) getRedis() redis.UniversalClient {
+	rc := config.GetRedis()
+	if rc == nil || reflect.ValueOf(rc).IsNil() {
+		return nil
 	}
+	return rc
 }
 
 func init() {
@@ -32,7 +39,7 @@ func init() {
 }
 
 func (r *tokenDaoImpl) Create(token *model.Token) (*model.Token, error) {
-	err := r.db.Create(token).Error
+	err := r.getDB().Create(token).Error
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +48,7 @@ func (r *tokenDaoImpl) Create(token *model.Token) (*model.Token, error) {
 
 func (r *tokenDaoImpl) FindByID(id uint) (*model.Token, error) {
 	var token model.Token
-	err := r.db.First(&token, id).Error
+	err := r.getDB().First(&token, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -49,9 +56,10 @@ func (r *tokenDaoImpl) FindByID(id uint) (*model.Token, error) {
 }
 
 func (r *tokenDaoImpl) FindByAccessToken(accessToken string) (*model.Token, error) {
-	if r.redisClient != nil {
+	rc := r.getRedis()
+	if rc != nil {
 		cacheKey := fmt.Sprintf("token:access:%s", accessToken)
-		data, err := r.redisClient.Get(context.Background(), cacheKey).Bytes()
+		data, err := rc.Get(context.Background(), cacheKey).Bytes()
 		if err == nil {
 			var token model.Token
 			if err := json.Unmarshal(data, &token); err == nil {
@@ -61,18 +69,18 @@ func (r *tokenDaoImpl) FindByAccessToken(accessToken string) (*model.Token, erro
 	}
 
 	var token model.Token
-	err := r.db.Where("access_token = ?", accessToken).First(&token).Error
+	err := r.getDB().Where("access_token = ?", accessToken).First(&token).Error
 	if err != nil {
 		return nil, err
 	}
 
-	if r.redisClient != nil {
+	if rc != nil {
 		cacheKey := fmt.Sprintf("token:access:%s", accessToken)
 		data, err := json.Marshal(token)
 		if err == nil {
 			expiration := time.Until(token.ExpiresAt) / 2
 			if expiration > 0 {
-				r.redisClient.Set(context.Background(), cacheKey, data, expiration)
+				rc.Set(context.Background(), cacheKey, data, expiration)
 			}
 		}
 	}
@@ -81,9 +89,10 @@ func (r *tokenDaoImpl) FindByAccessToken(accessToken string) (*model.Token, erro
 }
 
 func (r *tokenDaoImpl) FindByRefreshToken(refreshToken string) (*model.Token, error) {
-	if r.redisClient != nil {
+	rc := r.getRedis()
+	if rc != nil {
 		cacheKey := fmt.Sprintf("token:refresh:%s", refreshToken)
-		data, err := r.redisClient.Get(context.Background(), cacheKey).Bytes()
+		data, err := rc.Get(context.Background(), cacheKey).Bytes()
 		if err == nil {
 			var token model.Token
 			if err := json.Unmarshal(data, &token); err == nil {
@@ -93,18 +102,18 @@ func (r *tokenDaoImpl) FindByRefreshToken(refreshToken string) (*model.Token, er
 	}
 
 	var token model.Token
-	err := r.db.Where("refresh_token = ?", refreshToken).First(&token).Error
+	err := r.getDB().Where("refresh_token = ?", refreshToken).First(&token).Error
 	if err != nil {
 		return nil, err
 	}
 
-	if r.redisClient != nil {
+	if rc != nil {
 		cacheKey := fmt.Sprintf("token:refresh:%s", refreshToken)
 		data, err := json.Marshal(token)
 		if err == nil {
 			expiration := time.Until(token.RefreshExpiresAt) / 2
 			if expiration > 0 {
-				r.redisClient.Set(context.Background(), cacheKey, data, expiration)
+				rc.Set(context.Background(), cacheKey, data, expiration)
 			}
 		}
 	}
@@ -113,19 +122,20 @@ func (r *tokenDaoImpl) FindByRefreshToken(refreshToken string) (*model.Token, er
 }
 
 func (r *tokenDaoImpl) Update(token *model.Token) (*model.Token, error) {
-	err := r.db.Save(token).Error
+	err := r.getDB().Save(token).Error
 	if err != nil {
 		return nil, err
 	}
 
-	if r.redisClient != nil {
+	rc := r.getRedis()
+	if rc != nil {
 		if token.AccessToken != "" {
 			cacheKey := fmt.Sprintf("token:access:%s", token.AccessToken)
 			data, err := json.Marshal(token)
 			if err == nil {
 				expiration := time.Until(token.ExpiresAt) / 2
 				if expiration > 0 {
-					r.redisClient.Set(context.Background(), cacheKey, data, expiration)
+					rc.Set(context.Background(), cacheKey, data, expiration)
 				}
 			}
 		}
@@ -136,7 +146,7 @@ func (r *tokenDaoImpl) Update(token *model.Token) (*model.Token, error) {
 			if err == nil {
 				expiration := time.Until(token.RefreshExpiresAt) / 2
 				if expiration > 0 {
-					r.redisClient.Set(context.Background(), cacheKey, data, expiration)
+					rc.Set(context.Background(), cacheKey, data, expiration)
 				}
 			}
 		}
@@ -147,25 +157,26 @@ func (r *tokenDaoImpl) Update(token *model.Token) (*model.Token, error) {
 
 func (r *tokenDaoImpl) Delete(id uint) error {
 	var token model.Token
-	if err := r.db.First(&token, id).Error; err == nil {
-		if r.redisClient != nil {
+	if err := r.getDB().First(&token, id).Error; err == nil {
+		rc := r.getRedis()
+		if rc != nil {
 			if token.AccessToken != "" {
 				cacheKey := fmt.Sprintf("token:access:%s", token.AccessToken)
-				r.redisClient.Del(context.Background(), cacheKey)
+				rc.Del(context.Background(), cacheKey)
 			}
 			if token.RefreshToken != "" {
 				cacheKey := fmt.Sprintf("token:refresh:%s", token.RefreshToken)
-				r.redisClient.Del(context.Background(), cacheKey)
+				rc.Del(context.Background(), cacheKey)
 			}
 		}
 	}
 
-	return r.db.Delete(&model.Token{}, id).Error
+	return r.getDB().Delete(&model.Token{}, id).Error
 }
 
 func (r *tokenDaoImpl) FindByUserID(userID uint) ([]*model.Token, error) {
 	var tokens []*model.Token
-	err := r.db.Where("user_id = ? AND revoked = ?", userID, false).Find(&tokens).Error
+	err := r.getDB().Where("user_id = ? AND revoked = ?", userID, false).Find(&tokens).Error
 	if err != nil {
 		return nil, err
 	}
@@ -173,11 +184,11 @@ func (r *tokenDaoImpl) FindByUserID(userID uint) ([]*model.Token, error) {
 }
 
 func (r *tokenDaoImpl) RevokeByUserID(userID uint) error {
-	return r.db.Model(&model.Token{}).Where("user_id = ? AND revoked = ?", userID, false).Update("revoked", true).Error
+	return r.getDB().Model(&model.Token{}).Where("user_id = ? AND revoked = ?", userID, false).Update("revoked", true).Error
 }
 
 func (r *tokenDaoImpl) CreateAuthorizationCode(code *model.AuthorizationCode) (*model.AuthorizationCode, error) {
-	err := r.db.Create(code).Error
+	err := r.getDB().Create(code).Error
 	if err != nil {
 		return nil, err
 	}
@@ -186,7 +197,7 @@ func (r *tokenDaoImpl) CreateAuthorizationCode(code *model.AuthorizationCode) (*
 
 func (r *tokenDaoImpl) FindByCode(code string) (*model.AuthorizationCode, error) {
 	var authCode model.AuthorizationCode
-	err := r.db.Where("code = ?", code).First(&authCode).Error
+	err := r.getDB().Where("code = ?", code).First(&authCode).Error
 	if err != nil {
 		return nil, err
 	}
@@ -194,13 +205,13 @@ func (r *tokenDaoImpl) FindByCode(code string) (*model.AuthorizationCode, error)
 }
 
 func (r *tokenDaoImpl) MarkAsUsed(id uint) error {
-	return r.db.Model(&model.AuthorizationCode{}).Where("id = ?", id).Update("used", true).Error
+	return r.getDB().Model(&model.AuthorizationCode{}).Where("id = ?", id).Update("used", true).Error
 }
 
 func (r *tokenDaoImpl) DeleteExpiredCodes() error {
-	return r.db.Where("expires_at < NOW()").Delete(&model.AuthorizationCode{}).Error
+	return r.getDB().Where("expires_at < NOW()").Delete(&model.AuthorizationCode{}).Error
 }
 
 func (r *tokenDaoImpl) GetRedisClient() redis.UniversalClient {
-	return r.redisClient
+	return r.getRedis()
 }

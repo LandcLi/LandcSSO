@@ -7,24 +7,24 @@ import (
 	"gorm.io/gorm"
 )
 
+type auditDaoImpl struct{}
+
+func NewAuditDaoImpl() *auditDaoImpl {
+	return &auditDaoImpl{}
+}
+
+func (r *auditDaoImpl) getDB() *gorm.DB {
+	return config.GetDB()
+}
+
 func init() {
 	if dao.GetAuditDao() == nil {
 		dao.RegisterAuditDaoImpl(NewAuditDaoImpl())
 	}
 }
 
-type auditDaoImpl struct {
-	db *gorm.DB
-}
-
-func NewAuditDaoImpl() *auditDaoImpl {
-	return &auditDaoImpl{
-		db: config.GetDB(),
-	}
-}
-
 func (r *auditDaoImpl) Create(event *model.AuditEvent) (*model.AuditEvent, error) {
-	err := r.db.Create(event).Error
+	err := r.getDB().Create(event).Error
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (r *auditDaoImpl) Create(event *model.AuditEvent) (*model.AuditEvent, error
 
 func (r *auditDaoImpl) FindByID(id uint) (*model.AuditEvent, error) {
 	var event model.AuditEvent
-	err := r.db.First(&event, id).Error
+	err := r.getDB().First(&event, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -44,13 +44,13 @@ func (r *auditDaoImpl) FindByUserID(userID uint, page, pageSize int) ([]*model.A
 	var events []*model.AuditEvent
 	var total int64
 
-	err := r.db.Model(&model.AuditEvent{}).Where("user_id = ?", userID).Count(&total).Error
+	err := r.getDB().Model(&model.AuditEvent{}).Where("user_id = ?", userID).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * pageSize
-	err = r.db.Where("user_id = ?", userID).Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&events).Error
+	err = r.getDB().Where("user_id = ?", userID).Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&events).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -62,13 +62,13 @@ func (r *auditDaoImpl) FindByEventType(eventType string, page, pageSize int) ([]
 	var events []*model.AuditEvent
 	var total int64
 
-	err := r.db.Model(&model.AuditEvent{}).Where("event_type = ?", eventType).Count(&total).Error
+	err := r.getDB().Model(&model.AuditEvent{}).Where("event_type = ?", eventType).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * pageSize
-	err = r.db.Where("event_type = ?", eventType).Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&events).Error
+	err = r.getDB().Where("event_type = ?", eventType).Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&events).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -80,13 +80,13 @@ func (r *auditDaoImpl) FindAll(page, pageSize int) ([]*model.AuditEvent, int64, 
 	var events []*model.AuditEvent
 	var total int64
 
-	err := r.db.Model(&model.AuditEvent{}).Count(&total).Error
+	err := r.getDB().Model(&model.AuditEvent{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
 	offset := (page - 1) * pageSize
-	err = r.db.Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&events).Error
+	err = r.getDB().Order("created_at DESC").Offset(offset).Limit(pageSize).Find(&events).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -95,13 +95,13 @@ func (r *auditDaoImpl) FindAll(page, pageSize int) ([]*model.AuditEvent, int64, 
 }
 
 func (r *auditDaoImpl) Delete(id uint) error {
-	return r.db.Delete(&model.AuditEvent{}, id).Error
+	return r.getDB().Delete(&model.AuditEvent{}, id).Error
 }
 
 func (r *auditDaoImpl) DeleteByUserID(userID uint) error {
-	return r.db.Where("user_id = ?", userID).Delete(&model.AuditEvent{}).Error
+	return r.getDB().Where("user_id = ?", userID).Delete(&model.AuditEvent{}).Error
 }
 
 func (r *auditDaoImpl) DeleteBefore(before interface{}) error {
-	return r.db.Where("created_at < ?", before).Delete(&model.AuditEvent{}).Error
+	return r.getDB().Where("created_at < ?", before).Delete(&model.AuditEvent{}).Error
 }

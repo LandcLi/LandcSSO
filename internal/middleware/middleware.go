@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"time"
 
 	"github.com/LandcLi/landc-go/log/facade"
@@ -13,11 +12,9 @@ import (
 // CtxEnricherMiddleware extracts request info and stores in context for Handler to use.
 func CtxEnricherMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx := c.Request.Context()
-		ctx = context.WithValue(ctx, "IP", c.ClientIP())
-		ctx = context.WithValue(ctx, "DeviceFingerprint", c.GetHeader("X-Device-Fingerprint"))
-		ctx = context.WithValue(ctx, "UserAgent", c.GetHeader("User-Agent"))
-		c.Request = c.Request.WithContext(ctx)
+		c.Set("IP", c.ClientIP())
+		c.Set("DeviceFingerprint", c.GetHeader("X-Device-Fingerprint"))
+		c.Set("UserAgent", c.GetHeader("User-Agent"))
 		c.Next()
 	}
 }

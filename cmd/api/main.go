@@ -6,6 +6,9 @@ import (
 
 	_ "github.com/LandcLi/LandcSSO/internal"
 	"github.com/LandcLi/LandcSSO/internal/cmd"
+
+	// LandcUserManager SDK proxy (init registers proxy factories for remote calls)
+	_ "github.com/LandcLi/LandcUserManager/sdk"
 )
 
 func main() {

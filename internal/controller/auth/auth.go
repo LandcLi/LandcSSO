@@ -37,13 +37,9 @@ func (c *authController) Authorize(ctx context.Context, req *v1.AuthorizationCod
 		return nil, errors.New("client is disabled")
 	}
 	// todo 验证redirect_uri是否匹配
-	ctxValue := ctx.Value("UserID")
-	if ctxValue == nil {
-		return nil, errors.New("user_id not found in context")
-	}
-	userID, ok := ctxValue.(uint)
-	if !ok {
-		return nil, errors.New("user_id in context is not a string")
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, err
 	}
 	// 生成授权码
 	authorizationCode, err := service.GetAuthService().GenerateAuthorizationCode(ctx, userID, req.ClientID, req.RedirectURI, req.Scope, req.State, req.Nonce, req.CodeChallenge, req.CodeChallengeMethod)
@@ -61,6 +57,19 @@ func (c *authController) Authorize(ctx context.Context, req *v1.AuthorizationCod
 
 func NewAuthController() *authController {
 	return &authController{}
+}
+
+// getUserIDFromContext 从 context 中提取已认证的用户ID，未认证时返回错误
+func getUserIDFromContext(ctx context.Context) (uint, error) {
+	ctxValue := ctx.Value("UserID")
+	if ctxValue == nil {
+		return 0, errors.New("未认证")
+	}
+	userID, ok := ctxValue.(uint)
+	if !ok {
+		return 0, errors.New("未认证")
+	}
+	return userID, nil
 }
 
 func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.TokenResponse, error) {
@@ -209,11 +218,12 @@ func (c *authController) Logout(ctx context.Context, req *v1.LogoutRequest) erro
 	return service.GetAuthService().Logout(ctx, claims.UserID, ip, deviceFingerprint, userAgent)
 }
 
-func (c *authController) GenerateAuthorizationCode(ctx context.Context, req *v1.AuthorizationCodeRequest) (*v1.GenerateAuthCodeResponse, error) {
-	// 从上下文获取用户ID
-	userID := ctx.Value("UserID").(uint)
+func (c *authController) GenerateAuthorizationCode(ctx context.Context, req *v1.GenerateAuthorizationCodeRequest) (*v1.GenerateAuthCodeResponse, error) {
+	userID, err := getUserIDFromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 
-	// 调用认证服务生成授权码
 	code, err := service.GetAuthService().GenerateAuthorizationCode(ctx, userID, req.ClientID, req.RedirectURI, req.Scope, req.State, req.Nonce, req.CodeChallenge, req.CodeChallengeMethod)
 	if err != nil {
 		return nil, err

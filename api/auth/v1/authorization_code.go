@@ -19,14 +19,25 @@ type AuthorizationCodeResponse struct {
 	State       string `json:"state"`
 }
 
+type GenerateAuthorizationCodeRequest struct {
+	meta.Meta           `path:"/auth/generate-code" method:"POST"`
+	ClientID            string `json:"client_id" binding:"required"`
+	RedirectURI         string `json:"redirect_uri" binding:"required"`
+	Scope               string `json:"scope,omitempty"`
+	State               string `json:"state"`
+	Nonce               string `json:"nonce,omitempty"`
+	CodeChallenge       string `json:"code_challenge,omitempty"`
+	CodeChallengeMethod string `json:"code_challenge_method,omitempty"`
+}
+
+type GenerateAuthCodeResponse struct {
+	Code string `json:"code"`
+}
+
 type ValidateAuthorizationCodeRequest struct {
 	meta.Meta    `path:"/auth/verify-auth-code" method:"POST"`
 	Code         string `json:"code" binding:"required"`
 	ClientID     string `json:"client_id" binding:"required"`
 	RedirectURI  string `json:"redirect_uri" binding:"required"`
 	CodeVerifier string `json:"code_verifier"`
-}
-
-type GenerateAuthCodeResponse struct {
-	Code string `json:"code"`
 }

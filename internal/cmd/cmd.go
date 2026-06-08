@@ -13,15 +13,19 @@ import (
 // Main is the main application command.
 // cmd.Main.Run(ctx) handles bootstrap lifecycle + signal handling.
 var Main = cmd.NewCommand("main", "start HTTP server", func(ctx context.Context, parser *cmd.Parser) error {
-	server := web.NewServer(nil)
+	server := web.New()
 
 	// Add SSO middleware
 	server.Engine().Use(middleware.Cors())
 	server.Engine().Use(middleware.CtxEnricherMiddleware())
 	server.Engine().Use(middleware.RequestLogger())
 
-	// LandcUserManager - remote mode
-	userapi.UserGateway.ProvideRemote("http://user-service:8080")
+	// Auth middleware: public routes (login/token/etc.) skip auth;
+	// protected routes (authorize/generate-code/etc.) require Bearer token
+	server.Engine().Use(middleware.AuthRequired())
+
+	// LandcUserManager - remote mode (local dev)
+	userapi.UserGateway.ProvideRemote("http://localhost:18081")
 
 	// Register SSO routes
 	api.RegisterDefaultRoutes(server)
