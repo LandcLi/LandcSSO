@@ -2,26 +2,48 @@ package cmd
 
 import (
 	"context"
+	"net/http"
+	"strings"
 
 	"github.com/LandcLi/LandcSSO/api"
 	"github.com/LandcLi/LandcSSO/internal/middleware"
 	"github.com/LandcLi/landc-go/frame/pkg/cmd"
 	"github.com/LandcLi/landc-go/frame/pkg/web"
+	"github.com/LandcLi/landc-go/tools/ratelimit"
 	userapi "github.com/LandcLi/LandcUserManager/api/user"
+	"github.com/gin-gonic/gin"
 )
 
+// loginRateLimiter 登录接口限流（每 IP 每秒 5 次，突发 10 次）
+var loginRateLimiter = ratelimit.NewTokenBucket(5, 10)
+
 // Main is the main application command.
-// cmd.Main.Run(ctx) handles bootstrap lifecycle + signal handling.
 var Main = cmd.NewCommand("main", "start HTTP server", func(ctx context.Context, parser *cmd.Parser) error {
 	server := web.New()
+
+	// 登录/Token 接口限流（基于路径匹配）
+	server.Engine().Use(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		if strings.Contains(path, "/auth/login") ||
+			strings.Contains(path, "/auth/token") ||
+			strings.Contains(path, "/auth/refresh-token") {
+			if !loginRateLimiter.Allow() {
+				c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{
+					"code":    42900,
+					"message": "too many requests, please try again later",
+				})
+				return
+			}
+		}
+		c.Next()
+	})
 
 	// Add SSO middleware
 	server.Engine().Use(middleware.Cors())
 	server.Engine().Use(middleware.CtxEnricherMiddleware())
 	server.Engine().Use(middleware.RequestLogger())
 
-	// Auth middleware: public routes (login/token/etc.) skip auth;
-	// protected routes (authorize/generate-code/etc.) require Bearer token
+	// Auth middleware: public routes skip auth; protected routes require Bearer token
 	server.Engine().Use(middleware.AuthRequired())
 
 	// LandcUserManager - remote mode (local dev)
@@ -32,3 +54,4 @@ var Main = cmd.NewCommand("main", "start HTTP server", func(ctx context.Context,
 
 	return server.RunWithContext(ctx)
 })
+
