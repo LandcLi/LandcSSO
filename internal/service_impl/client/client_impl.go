@@ -1,11 +1,11 @@
 package client
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
-	"time"
+	"math/big"
 
 	v1 "github.com/LandcLi/LandcSSO/api/client/v1"
 	"github.com/LandcLi/LandcSSO/dao"
@@ -54,8 +54,8 @@ func (s *clientServiceImpl) List(req *v1.ClientListRequest) (*v1.ClientListRespo
 
 func (s *clientServiceImpl) Create(req *v1.ClientCreateRequest) (*v1.ClientResponse, error) {
 
-	clientID := generateClientID()
-	clientSecret := generateClientSecret()
+	clientID := GenerateClientID()
+	clientSecret := GenerateClientSecret()
 
 	redirectURIsJSON, err := json.Marshal(req.RedirectURIs)
 	if err != nil {
@@ -184,24 +184,32 @@ func (s *clientServiceImpl) GetByClientID(clientID string) (*model.Client, error
 	return client, nil
 }
 
-func generateClientID() string {
+func GenerateClientID() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, 8)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			b[i] = charset[0]
+			continue
+		}
+		b[i] = charset[n.Int64()]
 	}
 	clientID := fmt.Sprintf("client_%s", string(b))
 	facade.Infof("生成客户端ID: %s", clientID)
 	return clientID
 }
 
-func generateClientSecret() string {
+func GenerateClientSecret() string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	rand.Seed(time.Now().UnixNano())
 	b := make([]byte, 32)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			b[i] = charset[0]
+			continue
+		}
+		b[i] = charset[n.Int64()]
 	}
 	clientSecret := fmt.Sprintf("secret_%s", string(b))
 	facade.Infof("生成客户端密钥: %s", clientSecret)

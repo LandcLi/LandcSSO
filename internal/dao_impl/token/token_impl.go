@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/dao"
@@ -26,7 +25,7 @@ func (r *tokenDaoImpl) getDB() *gorm.DB {
 
 func (r *tokenDaoImpl) getRedis() redis.UniversalClient {
 	rc := config.GetRedis()
-	if rc == nil || reflect.ValueOf(rc).IsNil() {
+	if rc == nil {
 		return nil
 	}
 	return rc

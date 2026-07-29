@@ -4,9 +4,11 @@
 *.dll
 *.so
 *.dylib
+build/
 
 # 测试和覆盖率
 coverage.out
+coverage.html
 *.test
 
 # 依赖

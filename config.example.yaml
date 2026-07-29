@@ -10,10 +10,16 @@ database:
   conn_max_lifetime: 3600
 
 jwt:
-  secret: "change-me-to-a-random-secret"
+  # 生产环境推荐使用 RS256 非对称签名算法，避免共享密钥风险
+  # 使用 HS256 时请确保 secret 足够复杂（至少 32 个随机字符）
+  signingMethod: "RS256"
+  secret: "change-me-to-a-random-secret-at-least-32-chars"
+  privateKeyPath: "./keys/private.pem"
+  publicKeyPath: "./keys/public.pem"
   issuer: "sso-server"
   accessTokenExpiry: 1800
   refreshTokenExpiry: 86400
+  maxConcurrentSessions: 5
 
 thirdParty:
   wechat:

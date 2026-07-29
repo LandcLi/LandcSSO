@@ -2,14 +2,15 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"net/http"
-	"reflect"
 	"time"
 
 	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
@@ -88,7 +89,7 @@ func (s *authServiceImpl) generateTempToken(ctx context.Context, userID uint, ip
 
 	// 存储临时token信息到Redis（可选），以便后续验证
 	rc := config.GetRedis()
-	if rc != nil && !reflect.ValueOf(rc).IsNil() {
+	if rc != nil {
 		tempTokenKey := fmt.Sprintf("temp_token:%s", tokenString)
 		tempTokenData := map[string]interface{}{
 			"user_id":            userID,
@@ -228,7 +229,7 @@ func (s *authServiceImpl) ValidateToken(ctx context.Context, tokenString string,
 func (s *authServiceImpl) ExchangeTempToken(ctx context.Context, tempToken string, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
 	// 优先从Redis验证（如果可用）
 	rc := config.GetRedis()
-	if rc != nil && !reflect.ValueOf(rc).IsNil() {
+	if rc != nil {
 		tempTokenKey := fmt.Sprintf("temp_token:%s", tempToken)
 		tempTokenDataJSON, err := rc.Get(ctx, tempTokenKey).Bytes()
 		if err == nil {
@@ -350,7 +351,14 @@ func (s *authServiceImpl) sendLogoutNotification(url string) {
 		Timeout: 5 * time.Second,
 	}
 
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("POST", url, http.NoBody)
+	if err != nil {
+		facade.Errorf("创建登出通知请求失败: %v, URL: %s", err, url)
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		facade.Errorf("发送登出通知失败: %v, URL: %s", err, url)
 		return
@@ -366,7 +374,7 @@ func (s *authServiceImpl) sendLogoutNotification(url string) {
 }
 
 func (s *authServiceImpl) GenerateAuthorizationCode(ctx context.Context, userID uint, clientID, redirectURI, scope, state, nonce, codeChallenge, codeChallengeMethod string) (string, error) {
-	code := generateRandomString(32)
+	code := GenerateRandomString(32)
 
 	authCode := &model.AuthorizationCode{
 		Code:                code,
@@ -438,25 +446,48 @@ func (s *authServiceImpl) ValidateAuthorizationCode(ctx context.Context, code, c
 	return authCode, nil
 }
 
-func generateRandomString(length int) string {
+func GenerateRandomString(length int) string {
 	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 	b := make([]byte, length)
 	for i := range b {
-		b[i] = charset[rand.Intn(len(charset))]
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			b[i] = charset[0]
+			continue
+		}
+		b[i] = charset[n.Int64()]
 	}
 	return string(b)
 }
 
 func (s *authServiceImpl) GetJWKS(ctx context.Context) (*v1.JWKSResponse, error) {
+	keyService := service.GetKeyService()
+	if keyService == nil {
+		return &v1.JWKSResponse{Keys: []v1.Key{}}, nil
+	}
+
+	currentKey, err := keyService.GetCurrentKey()
+	if err != nil {
+		return &v1.JWKSResponse{Keys: []v1.Key{}}, nil
+	}
+
+	publicKey, ok := currentKey.PublicKey.(*rsa.PublicKey)
+	if !ok {
+		return nil, errors.New("无效的公钥类型")
+	}
+
+	n := base64.RawURLEncoding.EncodeToString(publicKey.N.Bytes())
+	e := base64.RawURLEncoding.EncodeToString(big.NewInt(int64(publicKey.E)).Bytes())
+
 	return &v1.JWKSResponse{
 		Keys: []v1.Key{
 			{
 				Kty: "RSA",
 				Alg: "RS256",
 				Use: "sig",
-				Kid: "key:1234567890",
-				N:   "t6V6zZ7X5c4b3a2s1d0f9g8h7j6k5l4m3n2o1p0",
-				E:   "AQAB",
+				Kid: currentKey.ID,
+				N:   n,
+				E:   e,
 			},
 		},
 	}, nil

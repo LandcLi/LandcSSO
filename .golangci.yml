@@ -1,0 +1,53 @@
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+  govet:
+    check-shadowing: true
+    enable-all: true
+  nolintlint:
+    require-explanation: true
+    require-specific: true
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - bodyclose
+    - goconst
+    - gocritic
+    - gofmt
+    - misspell
+    - nestif
+    - prealloc
+    - unconvert
+    - whitespace
+
+run:
+  timeout: 5m
+  skip-dirs:
+    - vendor/
+    - build/
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - goconst
+        - bodyclose
+  max-issues-per-linter: 0
+  max-same-issues: 0

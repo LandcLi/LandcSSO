@@ -110,7 +110,24 @@ type AlipayConfig struct {
 }
 
 func LoadConfig(path string) (*Config, error) {
+	// 优先从指定路径加载，找不到时递归搜索父目录
 	data, err := os.ReadFile(path)
+	if err != nil && os.IsNotExist(err) {
+		// 尝试在各级父目录中查找（最多上溯 5 层）
+		for i := 1; i <= 5; i++ {
+			candidate := path
+			for j := 0; j < i; j++ {
+				candidate = "../" + candidate
+			}
+			data, err = os.ReadFile(candidate)
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
