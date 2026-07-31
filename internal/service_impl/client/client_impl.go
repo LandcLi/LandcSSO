@@ -12,6 +12,7 @@ import (
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/LandcLi/LandcSSO/utility/config"
+	"github.com/LandcLi/LandcSSO/utility/security"
 	"github.com/LandcLi/landc-go/log/facade"
 )
 
@@ -55,7 +56,14 @@ func (s *clientServiceImpl) List(req *v1.ClientListRequest) (*v1.ClientListRespo
 func (s *clientServiceImpl) Create(req *v1.ClientCreateRequest) (*v1.ClientResponse, error) {
 
 	clientID := GenerateClientID()
-	clientSecret := GenerateClientSecret()
+	plainSecret := GenerateClientSecret()
+
+	// 客户端密钥以 bcrypt 哈希存储，明文仅在创建时返回一次
+	hashedSecret, err := security.HashSecret(plainSecret)
+	if err != nil {
+		facade.Errorf("客户端密钥哈希失败: %v", err)
+		return nil, err
+	}
 
 	redirectURIsJSON, err := json.Marshal(req.RedirectURIs)
 	if err != nil {
@@ -77,7 +85,7 @@ func (s *clientServiceImpl) Create(req *v1.ClientCreateRequest) (*v1.ClientRespo
 
 	client := &model.Client{
 		ClientID:                clientID,
-		ClientSecret:            clientSecret,
+		ClientSecret:            hashedSecret,
 		Name:                    req.Name,
 		RedirectURIs:            string(redirectURIsJSON),
 		Scope:                   req.Scope,
@@ -93,7 +101,9 @@ func (s *clientServiceImpl) Create(req *v1.ClientCreateRequest) (*v1.ClientRespo
 		return nil, err
 	}
 
-	return client.ToResponse(), nil
+	resp := client.ToResponse()
+	resp.ClientSecret = plainSecret // 明文仅本次返回，之后不可再获取
+	return resp, nil
 }
 
 func (s *clientServiceImpl) Update(req *v1.ClientUpdateRequest) (*v1.ClientResponse, error) {

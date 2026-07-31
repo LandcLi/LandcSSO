@@ -1,11 +1,13 @@
 package middleware
 
 import (
+	"net/http"
 	"time"
 
 	"github.com/LandcLi/landc-go/log/facade"
 	apiMiddleware 	"github.com/LandcLi/landc-go/api/middleware/gin"
 
+	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -19,15 +21,31 @@ func CtxEnricherMiddleware() gin.HandlerFunc {
 	}
 }
 
-// Cors 跨域中间件
+// Cors 跨域中间件（基于配置的 Origin 白名单，默认拒绝跨域）
 func Cors() gin.HandlerFunc {
+	allowOrigins := make(map[string]bool)
+	for _, origin := range config.GetConfig().AllowedOrigins() {
+		allowOrigins[origin] = true
+	}
+
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+		origin := c.GetHeader("Origin")
+		if origin != "" && allowOrigins[origin] {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Vary", "Origin")
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization")
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Max-Age", "86400")
+		}
 
 		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+			// 未在白名单内的预检请求直接拒绝
+			if origin == "" || !allowOrigins[origin] {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 

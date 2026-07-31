@@ -25,9 +25,10 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port int    `yaml:"port"`
-	Host string `yaml:"host"`
-	Mode string `yaml:"mode"`
+	Port int      `yaml:"port"`
+	Host string   `yaml:"host"`
+	Mode string   `yaml:"mode"`
+	Cors []string `yaml:"cors"` // 允许的跨域 Origin 白名单，空表示不允许跨域
 }
 
 type DatabaseConfig struct {
@@ -135,8 +136,28 @@ func LoadConfig(path string) (*Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, err
 	}
+
+	// 环境变量覆盖敏感配置（生产环境推荐注入，避免写入配置文件）
+	if v := os.Getenv("SSO_JWT_SECRET"); v != "" {
+		cfg.JWT.Secret = v
+	}
+	if v := os.Getenv("SSO_JWT_PRIVATE_KEY"); v != "" {
+		cfg.JWT.PrivateKeyPath = v
+	}
+	if v := os.Getenv("SSO_JWT_PUBLIC_KEY"); v != "" {
+		cfg.JWT.PublicKeyPath = v
+	}
+
 	globalConfig = &cfg
 	return &cfg, nil
+}
+
+// AllowedOrigins 返回 CORS 允许的 Origin 白名单
+func (c *Config) AllowedOrigins() []string {
+	if c == nil {
+		return nil
+	}
+	return c.Server.Cors
 }
 
 func GetConfig() *Config {
@@ -145,7 +166,7 @@ func GetConfig() *Config {
 		if err == nil {
 			globalConfig = cfg
 		} else {
-			panic("load config failed: " + err.Error())
+			facade.Errorf("load config failed: %v", err)
 		}
 	}
 	return globalConfig

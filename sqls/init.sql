@@ -1,4 +1,6 @@
-USE `test_db`;
+-- 请先创建数据库，并按实际环境修改数据库名
+CREATE DATABASE IF NOT EXISTS `sso_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `sso_db`;
 
 -- 令牌表
 CREATE TABLE IF NOT EXISTS `tokens` (
@@ -124,6 +126,8 @@ CREATE TABLE IF NOT EXISTS `authorization_codes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='授权码表';
 
 -- 插入默认客户端
+-- 注意：client_secret 存储的是 bcrypt 哈希，不是明文。
+-- 默认测试客户端明文密钥为 test-secret，仅用于本地开发，生产环境必须更换。
 INSERT INTO `clients` (`client_id`, `client_secret`, `name`, `redirect_uris`, `scope`, `grant_types`, `response_types`) VALUES
-('test-client', 'test-secret', '测试客户端', '["http://localhost:3000/callback"]', 'openid profile email', '["authorization_code", "refresh_token"]', '["code"]')
+('test-client', '$2a$10$dQn7lK4iYRFsgSptNJm29eW19Kxz1cKEdvufRmcsoNie0dfOTHbMy', '测试客户端', '["http://localhost:3000/callback"]', 'openid profile email', '["authorization_code", "refresh_token"]', '["code"]')
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `redirect_uris` = VALUES(`redirect_uris`), `scope` = VALUES(`scope`), `grant_types` = VALUES(`grant_types`), `response_types` = VALUES(`response_types`);

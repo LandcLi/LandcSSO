@@ -10,7 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
@@ -18,6 +21,7 @@ import (
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/LandcLi/LandcSSO/utility/config"
+	"github.com/LandcLi/LandcSSO/utility/security"
 	frameauth "github.com/LandcLi/landc-go/frame/pkg/auth"
 	"github.com/LandcLi/landc-go/log/facade"
 )
@@ -218,11 +222,13 @@ func (s *authServiceImpl) ValidateToken(ctx context.Context, tokenString string,
 	return &model.Claims{
 		UserID:            claims.UserID,
 		Username:          claims.Username,
-		Email:             claims.Username,
 		Scope:             claims.Scope,
 		ClientID:          claims.ClientID,
 		IP:                claims.IP,
 		DeviceFingerprint: claims.DeviceFingerprint,
+		// 注意：JWT 中未携带 email claim，这里不再错误地使用 username 填充 email。
+		// OIDC userinfo 端点应通过用户服务获取真实 email（见 docs/api.md）。
+		Email: "",
 	}, nil
 }
 
@@ -252,7 +258,7 @@ func (s *authServiceImpl) ExchangeTempToken(ctx context.Context, tempToken strin
 	return s.generateTokens(ctx, claims.UserID, "", ip, deviceFingerprint)
 }
 
-func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
+func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string, clientID string, clientSecret string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
 	token, err := dao.GetTokenDao().FindByRefreshToken(refreshToken)
 	if err != nil {
 		return nil, errors.New("刷新令牌不存在")
@@ -264,6 +270,14 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string,
 
 	if time.Now().After(token.RefreshExpiresAt) {
 		return nil, errors.New("刷新令牌已过期")
+	}
+
+	// RFC 6749 §6：刷新令牌必须进行客户端认证，且调用方客户端必须与令牌绑定客户端一致
+	if err := s.verifyClient(clientID, clientSecret); err != nil {
+		return nil, err
+	}
+	if token.ClientID != "" && token.ClientID != clientID {
+		return nil, errors.New("客户端与刷新令牌不匹配")
 	}
 
 	newTokens, err := s.generateTokens(ctx, token.UserID, token.ClientID, ip, deviceFingerprint)
@@ -278,6 +292,24 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string,
 	}
 
 	return newTokens, nil
+}
+
+// verifyClient 校验客户端凭证（client_id + client_secret），使用恒定时间比较
+func (s *authServiceImpl) verifyClient(clientID, clientSecret string) error {
+	if clientID == "" {
+		return errors.New("缺少客户端认证信息")
+	}
+	client, err := service.GetClientService().GetByClientID(clientID)
+	if err != nil {
+		return errors.New("客户端不存在")
+	}
+	if client.Status != 1 {
+		return errors.New("客户端已被禁用")
+	}
+	if !security.VerifySecret(client.ClientSecret, clientSecret) {
+		return errors.New("客户端认证失败")
+	}
+	return nil
 }
 
 func (s *authServiceImpl) GenerateTokens(ctx context.Context, userID uint, clientID string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
@@ -346,31 +378,63 @@ func (s *authServiceImpl) notifyClients(userID uint) error {
 	return nil
 }
 
-func (s *authServiceImpl) sendLogoutNotification(url string) {
+func (s *authServiceImpl) sendLogoutNotification(notificationURL string) {
+	// SSRF 防护：拒绝指向内网/回环地址的通知目标
+	if isPrivateURL(notificationURL) {
+		facade.Warnf("拒绝发送登出通知：目标地址为内网/回环地址，URL: %s", notificationURL)
+		return
+	}
+
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
 
-	req, err := http.NewRequest("POST", url, http.NoBody)
+	req, err := http.NewRequest("POST", notificationURL, http.NoBody)
 	if err != nil {
-		facade.Errorf("创建登出通知请求失败: %v, URL: %s", err, url)
+		facade.Errorf("创建登出通知请求失败: %v, URL: %s", err, notificationURL)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		facade.Errorf("发送登出通知失败: %v, URL: %s", err, url)
+		facade.Errorf("发送登出通知失败: %v, URL: %s", err, notificationURL)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		facade.Errorf("登出通知响应失败: %s, URL: %s", resp.Status, url)
+		facade.Errorf("登出通知响应失败: %s, URL: %s", resp.Status, notificationURL)
 		return
 	}
 
-	facade.Infof("登出通知发送成功: %s", url)
+	facade.Infof("登出通知发送成功: %s", notificationURL)
+}
+
+// isPrivateURL 判断 URL 是否指向内网、回环或链路本地地址（用于 SSRF 防护）
+func isPrivateURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return true
+	}
+	host := u.Hostname()
+	if host == "" {
+		return true
+	}
+
+	// 主机名黑名单：localhost 及常见内网域名
+	lowerHost := strings.ToLower(host)
+	if lowerHost == "localhost" || strings.HasSuffix(lowerHost, ".localhost") ||
+		strings.HasSuffix(lowerHost, ".internal") || strings.HasSuffix(lowerHost, ".local") {
+		return true
+	}
+
+	ip := net.ParseIP(host)
+	if ip == nil {
+		// 非 IP 形式的主机名（如公网域名），默认放行
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() || ip.IsUnspecified() || ip.IsMulticast()
 }
 
 func (s *authServiceImpl) GenerateAuthorizationCode(ctx context.Context, userID uint, clientID, redirectURI, scope, state, nonce, codeChallenge, codeChallengeMethod string) (string, error) {

@@ -51,7 +51,7 @@ func (c *Client) ToResponse() *v1.ClientResponse {
 	return &v1.ClientResponse{
 		ID:                      c.ID,
 		ClientID:                c.ClientID,
-		ClientSecret:            c.ClientSecret,
+		ClientSecret:            "", // 密钥哈希不对外返回；仅在创建时返回一次明文
 		Name:                    c.Name,
 		RedirectURIs:            redirectURIs,
 		Scope:                   c.Scope,

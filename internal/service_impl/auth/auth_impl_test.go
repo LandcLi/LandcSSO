@@ -50,3 +50,36 @@ func TestGenerateRandomStringUniqueness(t *testing.T) {
 		seen[result] = true
 	}
 }
+
+// TestIsPrivateURL 验证 SSRF 防护
+func TestIsPrivateURL(t *testing.T) {
+	private := []string{
+		"http://localhost:8080/callback",
+		"http://127.0.0.1:3000/callback",
+		"http://10.0.0.1/logout",
+		"http://172.16.0.1/logout",
+		"http://192.168.1.1/logout",
+		"http://169.254.169.254/metadata",
+		"http://myapp.internal/logout",
+		"http://service.local/logout",
+		"::1",
+		"http://0.0.0.0/x",
+		"not-a-valid-url",
+	}
+	for _, u := range private {
+		if !isPrivateURL(u) {
+			t.Errorf("isPrivateURL(%q) 应返回 true", u)
+		}
+	}
+
+	public := []string{
+		"https://example.com/logout",
+		"https://api.github.com/logout",
+		"http://8.8.8.8/logout",
+	}
+	for _, u := range public {
+		if isPrivateURL(u) {
+			t.Errorf("isPrivateURL(%q) 应返回 false", u)
+		}
+	}
+}

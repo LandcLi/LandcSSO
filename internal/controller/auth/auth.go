@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -9,6 +10,7 @@ import (
 	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
+	"github.com/LandcLi/LandcSSO/utility/security"
 	userapi "github.com/LandcLi/LandcUserManager/api/user"
 	userv1api "github.com/LandcLi/LandcUserManager/api/user/v1"
 	"github.com/LandcLi/landc-go/frame/pkg/di"
@@ -28,6 +30,11 @@ func (c *authController) Authorize(ctx context.Context, req *v1.AuthorizationCod
 		return nil, errors.New("response_type must be 'code'")
 	}
 
+	// state 参数必填，防止 CSRF（RFC 6749 §10.12）
+	if req.State == "" {
+		return nil, errors.New("state is required")
+	}
+
 	client, err := service.GetClientService().GetByClientID(req.ClientID)
 	if err != nil {
 		return nil, err
@@ -36,7 +43,10 @@ func (c *authController) Authorize(ctx context.Context, req *v1.AuthorizationCod
 	if client.Status != 1 {
 		return nil, errors.New("client is disabled")
 	}
-	// todo 验证redirect_uri是否匹配
+	// 严格校验 redirect_uri 必须在客户端注册列表内（RFC 6749 §3.1.2.3）
+	if !isRedirectURIRegistered(client.RedirectURIs, req.RedirectURI) {
+		return nil, errors.New("redirect_uri not registered for client")
+	}
 	userID, err := getUserIDFromContext(ctx)
 	if err != nil {
 		return nil, err
@@ -181,8 +191,8 @@ func (c *authController) RefreshToken(ctx context.Context, req *v1.RefreshTokenR
 	ip := ctx.Value("IP").(string)
 	deviceFingerprint := ctx.Value("DeviceFingerprint").(string)
 
-	// 调用认证服务刷新令牌
-	tokenResp, err := service.GetAuthService().RefreshToken(ctx, req.RefreshToken, ip, deviceFingerprint)
+	// 调用认证服务刷新令牌（强制客户端认证）
+	tokenResp, err := service.GetAuthService().RefreshToken(ctx, req.RefreshToken, req.ClientID, req.ClientSecret, ip, deviceFingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -261,7 +271,7 @@ func (c *authController) Token(ctx context.Context, req *v1.TokenRequest) (*v1.T
 	// 处理不同的授权类型
 	switch req.GrantType {
 	case "refresh_token":
-		resp, err := service.GetAuthService().RefreshToken(ctx, req.RefreshToken, ip, deviceFingerprint)
+		resp, err := service.GetAuthService().RefreshToken(ctx, req.RefreshToken, req.ClientID, req.ClientSecret, ip, deviceFingerprint)
 		if err != nil {
 			return nil, err
 		}
@@ -295,8 +305,8 @@ func (c *authController) Token(ctx context.Context, req *v1.TokenRequest) (*v1.T
 			return nil, err
 		}
 
-		// 验证客户端密钥
-		if client.ClientSecret != req.ClientSecret {
+		// 验证客户端密钥（恒定时间比较）
+		if !security.VerifySecret(client.ClientSecret, req.ClientSecret) {
 			return nil, errors.New("invalid_client")
 		}
 
@@ -329,8 +339,8 @@ func (c *authController) Token(ctx context.Context, req *v1.TokenRequest) (*v1.T
 			return nil, err
 		}
 
-		// 验证客户端密钥
-		if client.ClientSecret != req.ClientSecret {
+		// 验证客户端密钥（恒定时间比较）
+		if !security.VerifySecret(client.ClientSecret, req.ClientSecret) {
 			return nil, errors.New("invalid_client")
 		}
 
@@ -363,6 +373,23 @@ func (c *authController) GetJWKS(ctx context.Context) (*v1.JWKSResponse, error) 
 	return service.GetAuthService().GetJWKS(ctx)
 }
 
+// isRedirectURIRegistered 检查 redirectURI 是否在客户端注册的重定向 URI 列表中
+func isRedirectURIRegistered(registeredURIsJSON, redirectURI string) bool {
+	if registeredURIsJSON == "" || redirectURI == "" {
+		return false
+	}
+	var registeredURIs []string
+	if err := json.Unmarshal([]byte(registeredURIsJSON), &registeredURIs); err != nil {
+		return false
+	}
+	for _, uri := range registeredURIs {
+		if uri == redirectURI {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *authController) Introspect(ctx context.Context, req *v1.IntrospectRequest) (*v1.IntrospectResponse, error) {
 	ip := ctx.Value("IP").(string)
 	deviceFingerprint := ctx.Value("DeviceFingerprint").(string)
@@ -374,7 +401,7 @@ func (c *authController) Introspect(ctx context.Context, req *v1.IntrospectReque
 			return nil, errors.New("invalid_client")
 		}
 
-		if client.ClientSecret != req.ClientSecret {
+		if !security.VerifySecret(client.ClientSecret, req.ClientSecret) {
 			return nil, errors.New("invalid_client")
 		}
 	}

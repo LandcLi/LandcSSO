@@ -1,9 +1,14 @@
 server:
   addr: "0.0.0.0"
   port: 8080
+  # CORS 白名单：仅允许列出的 Origin 跨域访问，未配置则默认禁止跨域
+  cors:
+    - "http://localhost:3000"
+    - "http://localhost:3001"
 
 database:
   driver: "mysql"
+  # 生产环境请使用环境变量注入 DSN，勿写入配置文件
   dsn: "user:password@tcp(127.0.0.1:3306)/sso_db?charset=utf8mb4&parseTime=True&loc=Local"
   max_idle_conns: 10
   max_open_conns: 100
