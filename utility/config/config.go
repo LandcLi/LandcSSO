@@ -138,7 +138,10 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	// 环境变量覆盖敏感配置（生产环境推荐注入，避免写入配置文件）
-	if v := os.Getenv("SSO_JWT_SECRET"); v != "" {
+	// LANDC_JWT_SECRET 为 landc-go 框架统一命名，SSO_JWT_SECRET 为兼容旧配置保留
+	if v := os.Getenv("LANDC_JWT_SECRET"); v != "" {
+		cfg.JWT.Secret = v
+	} else if v := os.Getenv("SSO_JWT_SECRET"); v != "" {
 		cfg.JWT.Secret = v
 	}
 	if v := os.Getenv("SSO_JWT_PRIVATE_KEY"); v != "" {

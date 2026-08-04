@@ -15,9 +15,9 @@ database:
   conn_max_lifetime: 3600
 
 jwt:
-  # 生产环境推荐使用 RS256 非对称签名算法，避免共享密钥风险
-  # 使用 HS256 时请确保 secret 足够复杂（至少 32 个随机字符）
-  signingMethod: "RS256"
+  # landc-go v0.5.0 强制：HS256 密钥长度必须 >= 32 字符，否则初始化失败
+  # 生产环境推荐通过环境变量 LANDC_JWT_SECRET 注入，勿写入配置文件
+  signingMethod: "HS256"
   secret: "change-me-to-a-random-secret-at-least-32-chars"
   privateKeyPath: "./keys/private.pem"
   publicKeyPath: "./keys/public.pem"
