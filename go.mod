@@ -43,7 +43,6 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
-	github.com/kr/text v0.2.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
@@ -74,10 +73,6 @@ require (
 	gorm.io/driver/sqlite v1.6.0 // indirect
 )
 
-replace (
-	github.com/LandcLi/LandcUserManager => ../LandcUserManager
-	github.com/LandcLi/landc-go/api => ../landc-go/api
-	github.com/LandcLi/landc-go/frame => ../landc-go/frame
-	github.com/LandcLi/landc-go/log => ../landc-go/log
-	github.com/LandcLi/landc-go/tools => ../landc-go/tools
-)
+// landc-go v0.5.0 已发布公共版本，不再需要本地 replace。
+// LandcUserManager 尚未发布公共版本，暂时保留本地 replace。
+replace github.com/LandcLi/LandcUserManager => ../LandcUserManager
