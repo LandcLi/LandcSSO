@@ -33,25 +33,32 @@ func (a *alipayAdapter) ValidateRedirectURI(ctx context.Context, redirectURI str
 
 	// 解析redirect_uri
 	parsedURI, err := url.Parse(redirectURI)
-	if err != nil {
+	if err != nil || parsedURI.Host == "" {
 		return errors.New("无效的redirect_uri")
 	}
 
-	// 检查是否为http或https协议
-	if parsedURI.Scheme != "http" && parsedURI.Scheme != "https" {
-		return errors.New("redirect_uri必须使用http或https协议")
+	// 协议校验：生产环境强制 HTTPS；仅允许本地开发使用 http 环回地址
+	if parsedURI.Scheme == "https" {
+		// 允许
+	} else if parsedURI.Scheme == "http" {
+		host := parsedURI.Hostname()
+		if host != "localhost" && host != "127.0.0.1" && host != "::1" {
+			return errors.New("redirect_uri必须使用HTTPS协议")
+		}
+	} else {
+		return errors.New("redirect_uri必须使用https协议")
 	}
 
-	// 检查域名是否与配置中的一致
-	// 注意：这里应该与支付宝开放平台审核通过的域名进行比较
-	// 实际项目中，应该从配置中读取允许的域名列表进行验证
+	// 配置了 RedirectUri 时，必须与注册的回调地址完全一致（scheme + host + 路径）
 	if a.config.RedirectUri != "" {
-		// 解析配置中的redirect_uri
 		configURI, err := url.Parse(a.config.RedirectUri)
-		if err == nil && configURI.Host != "" {
-			if parsedURI.Host != configURI.Host {
-				return errors.New("redirect_uri的域名与配置不一致")
-			}
+		if err != nil || configURI.Host == "" {
+			return errors.New("配置的redirect_uri无效")
+		}
+		if parsedURI.Scheme != configURI.Scheme ||
+			parsedURI.Host != configURI.Host ||
+			parsedURI.Path != configURI.Path {
+			return errors.New("redirect_uri与配置的注册地址不一致")
 		}
 	}
 
@@ -75,9 +82,9 @@ func (a *alipayAdapter) GenerateAuthURL(ctx context.Context, params map[string]s
 	// 对redirect_uri进行URL编码
 	encodedRedirectURI := url.QueryEscape(params["redirect_uri"])
 
-	// 构建参数
+	// 构建参数（state 做 URL 编码）
 	authParams := fmt.Sprintf("app_id=%s&redirect_uri=%s&scope=auth_user&state=%s",
-		a.config.AppId, encodedRedirectURI, params["state"])
+		a.config.AppId, encodedRedirectURI, url.QueryEscape(params["state"]))
 
 	// 返回完整的授权链接
 	return authURL + "?" + authParams, nil

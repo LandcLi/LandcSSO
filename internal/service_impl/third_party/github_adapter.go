@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/LandcLi/LandcSSO/service"
 )
@@ -33,25 +33,32 @@ func (g *githubAdapter) ValidateRedirectURI(ctx context.Context, redirectURI str
 
 	// 解析redirect_uri
 	parsedURI, err := url.Parse(redirectURI)
-	if err != nil {
+	if err != nil || parsedURI.Host == "" {
 		return errors.New("无效的redirect_uri")
 	}
 
-	// 检查是否为http或https协议
-	if parsedURI.Scheme != "http" && parsedURI.Scheme != "https" {
-		return errors.New("redirect_uri必须使用http或https协议")
+	// 协议校验：生产环境强制 HTTPS；仅允许本地开发使用 http 环回地址
+	if parsedURI.Scheme == "https" {
+		// 允许
+	} else if parsedURI.Scheme == "http" {
+		host := parsedURI.Hostname()
+		if host != "localhost" && host != "127.0.0.1" && host != "::1" {
+			return errors.New("redirect_uri必须使用HTTPS协议")
+		}
+	} else {
+		return errors.New("redirect_uri必须使用https协议")
 	}
 
-	// 检查域名是否与配置中的一致
-	// 注意：这里应该与GitHub OAuth应用注册的域名进行比较
-	// 实际项目中，应该从配置中读取允许的域名列表进行验证
+	// 配置了 RedirectUri 时，必须与注册的回调地址完全一致（scheme + host + 路径）
 	if g.config.RedirectUri != "" {
-		// 解析配置中的redirect_uri
 		configURI, err := url.Parse(g.config.RedirectUri)
-		if err == nil && configURI.Host != "" {
-			if parsedURI.Host != configURI.Host {
-				return errors.New("redirect_uri的域名与配置不一致")
-			}
+		if err != nil || configURI.Host == "" {
+			return errors.New("配置的redirect_uri无效")
+		}
+		if parsedURI.Scheme != configURI.Scheme ||
+			parsedURI.Host != configURI.Host ||
+			parsedURI.Path != configURI.Path {
+			return errors.New("redirect_uri与配置的注册地址不一致")
 		}
 	}
 
@@ -80,9 +87,10 @@ func (g *githubAdapter) GenerateAuthURL(ctx context.Context, params map[string]s
 		params["scope"] = "user:email"
 	}
 
-	// 构建参数
+	// 构建参数（state 与 scope 做 URL 编码，防止特殊字符破坏授权链接）
 	paramsStr := fmt.Sprintf("client_id=%s&redirect_uri=%s&scope=%s&state=%s",
-		g.config.ClientId, encodedRedirectURI, params["scope"], params["state"])
+		g.config.ClientId, encodedRedirectURI,
+		url.QueryEscape(params["scope"]), url.QueryEscape(params["state"]))
 
 	// 添加PKCE参数
 	if params["code_challenge"] != "" {
@@ -98,8 +106,61 @@ func (g *githubAdapter) GenerateAuthURL(ctx context.Context, params map[string]s
 	return authURL + "?" + paramsStr, nil
 }
 
+// RefreshAccessToken 使用 refresh_token 刷新 GitHub access_token
+// （GitHub 新版 OAuth App 支持 expiring tokens：access_token 约 8 小时过期）
 func (g *githubAdapter) RefreshAccessToken(ctx context.Context, accessToken, refreshToken string) (string, error) {
-	return "", nil
+	// 检查配置
+	if g.config == nil || g.config.ClientId == "" || g.config.ClientSecret == "" {
+		return "", errors.New("GitHub登录配置未设置")
+	}
+	if refreshToken == "" {
+		return "", errors.New("缺少GitHub refresh_token")
+	}
+
+	fetchURL := "https://github.com/login/oauth/access_token"
+	requestBody := fmt.Sprintf("client_id=%s&client_secret=%s&grant_type=refresh_token&refresh_token=%s",
+		g.config.ClientId, g.config.ClientSecret, refreshToken)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("POST", fetchURL, strings.NewReader(requestBody))
+	if err != nil {
+		return "", errors.New("构建GitHub刷新请求失败")
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", errors.New("刷新GitHub令牌失败")
+	}
+	defer resp.Body.Close()
+
+	var tokenData struct {
+		AccessToken           string `json:"access_token"`
+		ExpiresIn             int    `json:"expires_in"`
+		RefreshToken          string `json:"refresh_token"`
+		RefreshTokenExpiresIn int    `json:"refresh_token_expires_in"`
+		Scope                 string `json:"scope"`
+		TokenType             string `json:"token_type"`
+		Error                 string `json:"error"`
+		ErrorDescription      string `json:"error_description"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tokenData); err != nil {
+		return "", errors.New("解析GitHub刷新响应失败")
+	}
+
+	if tokenData.Error != "" {
+		msg := "GitHub API错误: " + tokenData.Error
+		if tokenData.ErrorDescription != "" {
+			msg += ": " + tokenData.ErrorDescription
+		}
+		return "", errors.New(msg)
+	}
+	if tokenData.AccessToken == "" {
+		return "", errors.New("GitHub未返回新的access_token")
+	}
+
+	return tokenData.AccessToken, nil
 }
 
 func (g *githubAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, code, redirectURI string) (string, string, string, error) {
@@ -113,44 +174,62 @@ func (g *githubAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, cod
 		return "", "", "", err
 	}
 
-	// 构建获取access_token的URL
 	fetchURL := "https://github.com/login/oauth/access_token"
-
-	// 构建请求体
 	requestBody := fmt.Sprintf("client_id=%s&client_secret=%s&code=%s&redirect_uri=%s",
 		g.config.ClientId, g.config.ClientSecret, code, redirectURI)
 
-	// 发送POST请求
-	resp, err := http.Post(fetchURL, "application/x-www-form-urlencoded", strings.NewReader(requestBody))
+	// 使用 Accept: application/json 获取 JSON 响应（GitHub 默认返回 form 格式）
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("POST", fetchURL, strings.NewReader(requestBody))
+	if err != nil {
+		return "", "", "", errors.New("构建GitHub令牌请求失败")
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", "", "", errors.New("获取GitHub令牌失败")
 	}
 	defer resp.Body.Close()
 
-	// 解析响应
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
+	var tokenData struct {
+		AccessToken           string `json:"access_token"`
+		ExpiresIn             int    `json:"expires_in"`
+		RefreshToken          string `json:"refresh_token"`
+		RefreshTokenExpiresIn int    `json:"refresh_token_expires_in"`
+		Scope                 string `json:"scope"`
+		TokenType             string `json:"token_type"`
+		Error                 string `json:"error"`
+		ErrorDescription      string `json:"error_description"`
+		ErrorURI              string `json:"error_uri"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tokenData); err != nil {
 		return "", "", "", errors.New("解析GitHub令牌响应失败")
 	}
 
-	// GitHub返回的是form格式的数据，需要解析
-	values, err := url.ParseQuery(string(body))
-	if err != nil {
-		return "", "", "", errors.New("解析GitHub令牌响应失败")
+	// 透出 GitHub 的错误描述
+	if tokenData.Error != "" {
+		msg := "GitHub API错误: " + tokenData.Error
+		if tokenData.ErrorDescription != "" {
+			msg += ": " + tokenData.ErrorDescription
+		}
+		return "", "", "", errors.New(msg)
+	}
+	if tokenData.AccessToken == "" {
+		return "", "", "", errors.New("GitHub未返回access_token")
 	}
 
-	accessToken := values.Get("access_token")
-	if accessToken == "" {
-		return "", "", "", errors.New("获取GitHub令牌失败")
-	}
-
-	// 获取用户信息（GitHub没有refresh_token，所以refresh_token为空）
+	// 获取用户信息作为 openId
+	// TODO: 按需求文档分工，token换用户信息应由 LandcUserManager 承担；
+	//  当前 LandcUserManager 登录仍依赖 openId 作为标识，暂时保留此调用
 	userInfoURL := "https://api.github.com/user"
-	req, _ := http.NewRequest("GET", userInfoURL, nil)
-	req.Header.Set("Authorization", "Bearer "+accessToken)
-	req.Header.Set("Accept", "application/json")
+	userReq, _ := http.NewRequest("GET", userInfoURL, nil)
+	userReq.Header.Set("Authorization", "Bearer "+tokenData.AccessToken)
+	userReq.Header.Set("Accept", "application/json")
 
-	userResp, err := http.DefaultClient.Do(req)
+	userClient := &http.Client{Timeout: 10 * time.Second}
+	userResp, err := userClient.Do(userReq)
 	if err != nil {
 		return "", "", "", errors.New("获取GitHub用户信息失败")
 	}
@@ -162,13 +241,12 @@ func (g *githubAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, cod
 		Name  string `json:"name"`
 		Email string `json:"email"`
 	}
-
 	if err := json.NewDecoder(userResp.Body).Decode(&userInfo); err != nil {
 		return "", "", "", errors.New("解析GitHub用户信息失败")
 	}
 
-	// 返回access_token、refresh_token（GitHub没有refresh_token）和openId（使用用户ID）
-	return accessToken, "", fmt.Sprintf("%d", userInfo.ID), nil
+	// 返回 access_token、refresh_token（新版 GitHub OAuth App 支持）和 openId（使用用户ID）
+	return tokenData.AccessToken, tokenData.RefreshToken, fmt.Sprintf("%d", userInfo.ID), nil
 }
 
 // -------------------------- GitHub工厂实现（内部屏蔽Config解析） --------------------------

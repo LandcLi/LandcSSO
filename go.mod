@@ -7,9 +7,9 @@ toolchain go1.26.5
 require (
 	github.com/LandcLi/LandcUserManager v0.0.0
 	github.com/LandcLi/landc-go/api v0.5.0
-	github.com/LandcLi/landc-go/frame v0.5.0
+	github.com/LandcLi/landc-go/frame v0.7.0
 	github.com/LandcLi/landc-go/log v0.5.0
-	github.com/LandcLi/landc-go/tools v0.5.0
+	github.com/LandcLi/landc-go/tools v0.7.0
 	github.com/gin-gonic/gin v1.11.0
 	github.com/redis/go-redis/v9 v9.19.0
 	golang.org/x/crypto v0.53.0

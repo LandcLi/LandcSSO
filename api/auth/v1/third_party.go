@@ -13,4 +13,6 @@ type ThirdPartyAuthURLRequest struct {
 
 type ThirdPartyAuthURLResponse struct {
 	AuthURL string `json:"auth_url"`
+	// State SSO 服务端生成的 CSRF 防伪 state，回调登录时必须原样传回
+	State string `json:"state"`
 }

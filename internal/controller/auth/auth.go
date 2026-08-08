@@ -8,6 +8,7 @@ import (
 
 	authApi "github.com/LandcLi/LandcSSO/api/auth"
 	v1 "github.com/LandcLi/LandcSSO/api/auth/v1"
+	thirdparty "github.com/LandcLi/LandcSSO/internal/service_impl/third_party"
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/LandcLi/LandcSSO/utility/security"
@@ -89,6 +90,11 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 
 	// 如果是第三方登录，需要根据verifyType获取对应的适配器，然后调用获取access_token、refresh_token的接口
 	if req.AuthType == "THIRD_PARTY" {
+		// 校验 CSRF 防伪 state（服务端生成，必须原样回传，一次性）
+		if !thirdparty.ValidateAndConsumeState(req.State, req.VerifyType) {
+			return nil, errors.New("state校验失败或已过期")
+		}
+
 		// 获取对应的适配器
 		adapter, ok := service.GetThirdPartyAdapter(req.VerifyType)
 		if !ok {
@@ -253,6 +259,13 @@ func (c *authController) GetThirdPartyAuthURL(ctx context.Context, req *v1.Third
 		return nil, errors.New("第三方登录适配器未找到")
 	}
 
+	// 服务端生成 CSRF 防伪 state 并保存（10 分钟有效，一次性）
+	state := thirdparty.GenerateState(req.Provider)
+	if req.Params == nil {
+		req.Params = make(map[string]string)
+	}
+	req.Params["state"] = state
+
 	// 生成认证URL
 	authURL, err := adapter.GenerateAuthURL(ctx, req.Params)
 	if err != nil {
@@ -261,6 +274,7 @@ func (c *authController) GetThirdPartyAuthURL(ctx context.Context, req *v1.Third
 
 	return &v1.ThirdPartyAuthURLResponse{
 		AuthURL: authURL,
+		State:   state,
 	}, nil
 }
 
