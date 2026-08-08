@@ -220,33 +220,11 @@ func (g *githubAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, cod
 		return "", "", "", errors.New("GitHub未返回access_token")
 	}
 
-	// 获取用户信息作为 openId
-	// TODO: 按需求文档分工，token换用户信息应由 LandcUserManager 承担；
-	//  当前 LandcUserManager 登录仍依赖 openId 作为标识，暂时保留此调用
-	userInfoURL := "https://api.github.com/user"
-	userReq, _ := http.NewRequest("GET", userInfoURL, nil)
-	userReq.Header.Set("Authorization", "Bearer "+tokenData.AccessToken)
-	userReq.Header.Set("Accept", "application/json")
-
-	userClient := &http.Client{Timeout: 10 * time.Second}
-	userResp, err := userClient.Do(userReq)
-	if err != nil {
-		return "", "", "", errors.New("获取GitHub用户信息失败")
-	}
-	defer userResp.Body.Close()
-
-	var userInfo struct {
-		ID    int64  `json:"id"`
-		Login string `json:"login"`
-		Name  string `json:"name"`
-		Email string `json:"email"`
-	}
-	if err := json.NewDecoder(userResp.Body).Decode(&userInfo); err != nil {
-		return "", "", "", errors.New("解析GitHub用户信息失败")
-	}
-
-	// 返回 access_token、refresh_token（新版 GitHub OAuth App 支持）和 openId（使用用户ID）
-	return tokenData.AccessToken, tokenData.RefreshToken, fmt.Sprintf("%d", userInfo.ID), nil
+	// 返回 access_token、refresh_token（新版 GitHub OAuth App 支持）和 openId。
+	// openId 返回空：按职责分工，token 换用户信息由 LandcUserManager 的
+	// FetchUserInfo 承担（凭 access_token 调 GitHub /user 获取用户ID），
+	// SSO 不再越界调用第三方用户信息接口。
+	return tokenData.AccessToken, tokenData.RefreshToken, "", nil
 }
 
 // -------------------------- GitHub工厂实现（内部屏蔽Config解析） --------------------------

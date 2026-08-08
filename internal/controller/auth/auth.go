@@ -140,6 +140,11 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 		}, nil
 	}
 
+	// 非第三方登录（PASSWORD / VERIFY_CODE）：标识与凭据必填
+	if req.Identifier == "" || req.AuthCode == "" {
+		return nil, errors.New("identifier 和 verifyCode 不能为空")
+	}
+
 	// 非第三方登录，调用用户服务登录
 	resp, err := userapi.GetUserController().Login(ctx, &userv1api.LoginRequest{
 		Identifier:        req.Identifier,
