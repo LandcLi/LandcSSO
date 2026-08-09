@@ -121,7 +121,7 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 			UserAgent:         userAgent,
 		})
 		if err != nil {
-			return nil, err
+			return nil, wrapRemoteError(err)
 		}
 
 		// 调用认证服务登录
@@ -157,7 +157,7 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 		UserAgent:         userAgent,
 	})
 	if err != nil {
-		return nil, err
+		return nil, wrapRemoteError(err)
 	}
 
 	// 调用认证服务登录
