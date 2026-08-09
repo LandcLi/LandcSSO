@@ -21,7 +21,8 @@ type Config struct {
 	Log        facade.LogConfig `yaml:"log"`
 	Mail       MailConfig       `yaml:"mail"`
 	SMS        SMSConfig        `yaml:"sms"`
-	ThirdParty ThirdPartyConfig `yaml:"thirdParty"`
+	// ThirdParty 第三方登录配置（key=适配器类型，value=该类型配置项）
+	ThirdParty map[string]map[string]interface{} `yaml:"third_party"`
 }
 
 type ServerConfig struct {
@@ -77,37 +78,6 @@ type SMSConfig struct {
 	SecretKey string            `yaml:"secretKey"`
 	SignName  string            `yaml:"signName"`
 	Templates map[string]string `yaml:"templates"`
-}
-
-type ThirdPartyConfig struct {
-	Wechat   WechatConfig   `yaml:"wechat"`
-	Dingtalk DingtalkConfig `yaml:"dingtalk"`
-	Github   GithubConfig   `yaml:"github"`
-	Alipay   AlipayConfig   `yaml:"alipay"`
-}
-
-type WechatConfig struct {
-	AppId       string `yaml:"appId"`
-	AppSecret   string `yaml:"appSecret"`
-	RedirectUri string `yaml:"redirectUri"`
-}
-
-type DingtalkConfig struct {
-	AppId       string `yaml:"appId"`
-	AppSecret   string `yaml:"appSecret"`
-	RedirectUri string `yaml:"redirectUri"`
-}
-
-type GithubConfig struct {
-	ClientId     string `yaml:"clientId"`
-	ClientSecret string `yaml:"clientSecret"`
-	RedirectUri  string `yaml:"redirectUri"`
-}
-
-type AlipayConfig struct {
-	AppId       string `yaml:"appId"`
-	AppSecret   string `yaml:"appSecret"`
-	RedirectUri string `yaml:"redirectUri"`
 }
 
 func LoadConfig(path string) (*Config, error) {

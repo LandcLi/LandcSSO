@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/LandcLi/landc-go/log/facade"
+	"github.com/redis/go-redis/v9"
 )
 
 const (
@@ -40,14 +43,14 @@ func init() {
 	go defaultStateStore.cleanupLoop()
 }
 
-// GenerateState 生成并保存 OAuth state（绑定 provider）
+// GenerateState 生成并保存 OAuth state（绑定 provider，大小写不敏感）
 func GenerateState(provider string) string {
-	return defaultStateStore.GenerateState(provider)
+	return defaultStateStore.GenerateState(strings.ToUpper(provider))
 }
 
-// ValidateAndConsumeState 校验并消费 OAuth state（一次性）
+// ValidateAndConsumeState 校验并消费 OAuth state（一次性，provider 大小写不敏感）
 func ValidateAndConsumeState(state, provider string) bool {
-	return defaultStateStore.ValidateAndConsumeState(state, provider)
+	return defaultStateStore.ValidateAndConsumeState(state, strings.ToUpper(provider))
 }
 
 // GenerateState 生成随机 state 并保存（绑定 provider）
@@ -74,6 +77,7 @@ func (s *stateStore) GenerateState(provider string) string {
 }
 
 // ValidateAndConsumeState 校验并消费 state（一次性，校验后立即删除）
+// 注意：Redis 不可用/连接失败时回退内存检查（与 GenerateState 的写入路径对称）
 func (s *stateStore) ValidateAndConsumeState(state, provider string) bool {
 	if state == "" {
 		return false
@@ -82,20 +86,30 @@ func (s *stateStore) ValidateAndConsumeState(state, provider string) bool {
 	if rc := config.GetRedis(); rc != nil {
 		key := stateRedisKeyPrefix + state
 		val, err := rc.Get(context.Background(), key).Result()
-		if err != nil {
-			// 不存在或已过期
-			return false
-		}
-		if val != provider {
-			// provider 不匹配，删除并拒绝
+		switch {
+		case err == nil:
+			// Redis 命中：校验 provider 后消费
+			if val != provider {
+				rc.Del(context.Background(), key)
+				return false
+			}
 			rc.Del(context.Background(), key)
-			return false
+			return true
+		case errors.Is(err, redis.Nil):
+			// Redis 中不存在（可能是写入时走了内存回退），检查内存
+			return s.consumeFallback(state, provider)
+		default:
+			// Redis 连接异常：回退内存检查（与 GenerateState 的回退策略一致）
+			facade.Warnf("Redis读取state失败，回退内存检查: %v", err)
+			return s.consumeFallback(state, provider)
 		}
-		rc.Del(context.Background(), key)
-		return true
 	}
 
-	// 内存回退
+	return s.consumeFallback(state, provider)
+}
+
+// consumeFallback 从内存回退存储中校验并消费 state
+func (s *stateStore) consumeFallback(state, provider string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	entry, ok := s.fallback[state]

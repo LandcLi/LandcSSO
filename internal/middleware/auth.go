@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"strings"
 
 	"github.com/LandcLi/LandcSSO/service"
@@ -70,6 +71,15 @@ func AuthRequired() gin.HandlerFunc {
 		c.Set("Email", claims.Email)
 		c.Set("Scope", claims.Scope)
 		c.Set("ClientID", claims.ClientID)
+
+		// 同步写入 request context，供以 context.Context 为参数的 handler 读取
+		reqCtx := c.Request.Context()
+		reqCtx = context.WithValue(reqCtx, "UserID", claims.UserID)
+		reqCtx = context.WithValue(reqCtx, "Username", claims.Username)
+		reqCtx = context.WithValue(reqCtx, "Email", claims.Email)
+		reqCtx = context.WithValue(reqCtx, "Scope", claims.Scope)
+		reqCtx = context.WithValue(reqCtx, "ClientID", claims.ClientID)
+		c.Request = c.Request.WithContext(reqCtx)
 
 		c.Next()
 	}

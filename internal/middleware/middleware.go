@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -12,11 +13,24 @@ import (
 )
 
 // CtxEnricherMiddleware extracts request info and stores in context for Handler to use.
+// 同时写入 gin context 与 request context（landc-go frame v0.8.1 向 handler 传入
+// c.Request.Context()，controller 通过 ctx.Value 读取这些值）。
 func CtxEnricherMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Set("IP", c.ClientIP())
-		c.Set("DeviceFingerprint", c.GetHeader("X-Device-Fingerprint"))
-		c.Set("UserAgent", c.GetHeader("User-Agent"))
+		ip := c.ClientIP()
+		deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
+		userAgent := c.GetHeader("User-Agent")
+
+		c.Set("IP", ip)
+		c.Set("DeviceFingerprint", deviceFingerprint)
+		c.Set("UserAgent", userAgent)
+
+		ctx := c.Request.Context()
+		ctx = context.WithValue(ctx, "IP", ip)
+		ctx = context.WithValue(ctx, "DeviceFingerprint", deviceFingerprint)
+		ctx = context.WithValue(ctx, "UserAgent", userAgent)
+		c.Request = c.Request.WithContext(ctx)
+
 		c.Next()
 	}
 }

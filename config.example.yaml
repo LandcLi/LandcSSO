@@ -26,23 +26,23 @@ jwt:
   refreshTokenExpiry: 86400
   maxConcurrentSessions: 5
 
-thirdParty:
+third_party:
   wechat:
-    appId: "your-wechat-appid"
-    appSecret: "your-wechat-appsecret"
-    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+    app_id: "your-wechat-appid"
+    app_secret: "your-wechat-appsecret"
+    redirect_uri: "http://localhost:8080/auth/third-party-login/callback"
   dingtalk:
-    appId: "your-dingtalk-appid"
-    appSecret: "your-dingtalk-appsecret"
-    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+    app_id: "your-dingtalk-appid"
+    app_secret: "your-dingtalk-appsecret"
+    redirect_uri: "http://localhost:8080/auth/third-party-login/callback"
   github:
-    clientId: "your-github-clientid"
-    clientSecret: "your-github-clientsecret"
-    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+    client_id: "your-github-clientid"
+    client_secret: "your-github-clientsecret"
+    redirect_uri: "http://localhost:8080/auth/third-party-login/callback"
   alipay:
-    appId: "your-alipay-appid"
-    appSecret: "your-alipay-appsecret"
-    redirectUri: "http://localhost:8080/auth/third-party-login/callback"
+    app_id: "your-alipay-appid"
+    app_secret: "your-alipay-appsecret"
+    redirect_uri: "http://localhost:8080/auth/third-party-login/callback"
 
 mail:
   host: "smtp.example.com"

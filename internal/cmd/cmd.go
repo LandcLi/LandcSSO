@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/LandcLi/LandcSSO/api"
 	"github.com/LandcLi/LandcSSO/internal/middleware"
+	"github.com/LandcLi/LandcSSO/service"
+	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/LandcLi/landc-go/frame/pkg/cmd"
 	"github.com/LandcLi/landc-go/frame/pkg/web"
 	"github.com/LandcLi/landc-go/tools/ratelimit"
@@ -48,6 +51,15 @@ var Main = cmd.NewCommand("main", "start HTTP server", func(ctx context.Context,
 
 	// LandcUserManager - remote mode (local dev)
 	userapi.UserGateway.ProvideRemote("http://localhost:18081")
+
+	// 初始化第三方登录适配器（从 config 的 third_party 节点创建并注册）
+	if cfg := config.GetConfig(); cfg != nil && len(cfg.ThirdParty) > 0 {
+		if err := service.InitWithConfig(&service.ThirdPartyGlobalConfig{
+			ThirdParty: cfg.ThirdParty,
+		}); err != nil {
+			return fmt.Errorf("init third party adapters: %w", err)
+		}
+	}
 
 	// Register SSO routes
 	api.RegisterDefaultRoutes(server)

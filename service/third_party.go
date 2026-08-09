@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -35,14 +36,14 @@ var (
 func RegisterAdapterFactory(factory AdapterFactory) {
 	factoriesRWLock.Lock()
 	defer factoriesRWLock.Unlock()
-	factories[factory.Type()] = factory
+	factories[strings.ToUpper(factory.Type())] = factory
 }
 
 // getFactory 获取适配器工厂（内部使用）
 func getFactory(adapterType string) (AdapterFactory, bool) {
 	factoriesRWLock.RLock()
 	defer factoriesRWLock.RUnlock()
-	factory, ok := factories[adapterType]
+	factory, ok := factories[strings.ToUpper(adapterType)]
 	return factory, ok
 }
 
@@ -62,14 +63,15 @@ var (
 func RegisterThirdPartyAdapter(adapterType string, adapter ThirdPartyAdapter) {
 	adaptersRWLock.Lock()
 	defer adaptersRWLock.Unlock()
-	adapters[adapterType] = adapter
+	adapters[strings.ToUpper(adapterType)] = adapter
 }
 
 // GetThirdPartyAdapter 获取适配器实例（对外暴露）
+// 对 provider 大小写不敏感（如 "github" / "GITHUB" 均匹配）
 func GetThirdPartyAdapter(adapterType string) (ThirdPartyAdapter, bool) {
 	adaptersRWLock.RLock()
 	defer adaptersRWLock.RUnlock()
-	adapter, ok := adapters[adapterType]
+	adapter, ok := adapters[strings.ToUpper(adapterType)]
 	return adapter, ok
 }
 

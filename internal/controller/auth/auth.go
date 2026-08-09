@@ -14,6 +14,7 @@ import (
 	"github.com/LandcLi/LandcSSO/utility/security"
 	userapi "github.com/LandcLi/LandcUserManager/api/user"
 	userv1api "github.com/LandcLi/LandcUserManager/api/user/v1"
+	"github.com/LandcLi/landc-go/api/core"
 	"github.com/LandcLi/landc-go/frame/pkg/di"
 )
 
@@ -92,7 +93,7 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 	if req.AuthType == "THIRD_PARTY" {
 		// 校验 CSRF 防伪 state（服务端生成，必须原样回传，一次性）
 		if !thirdparty.ValidateAndConsumeState(req.State, req.VerifyType) {
-			return nil, errors.New("state校验失败或已过期")
+			return nil, core.NewError(core.ErrorCodeInvalidParams, "state校验失败或已过期")
 		}
 
 		// 获取对应的适配器
@@ -142,7 +143,7 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 
 	// 非第三方登录（PASSWORD / VERIFY_CODE）：标识与凭据必填
 	if req.Identifier == "" || req.AuthCode == "" {
-		return nil, errors.New("identifier 和 verifyCode 不能为空")
+		return nil, core.NewError(core.ErrorCodeInvalidParams, "identifier 和 verifyCode 不能为空")
 	}
 
 	// 非第三方登录，调用用户服务登录
@@ -269,7 +270,12 @@ func (c *authController) GetThirdPartyAuthURL(ctx context.Context, req *v1.Third
 	if req.Params == nil {
 		req.Params = make(map[string]string)
 	}
+	// 将顶层 redirect_uri / scope 注入 params（适配器 GenerateAuthURL 读取 params）
+	req.Params["redirect_uri"] = req.RedirectURI
 	req.Params["state"] = state
+	if req.Scope != "" {
+		req.Params["scope"] = req.Scope
+	}
 
 	// 生成认证URL
 	authURL, err := adapter.GenerateAuthURL(ctx, req.Params)
