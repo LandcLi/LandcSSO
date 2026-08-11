@@ -367,6 +367,33 @@ if err != nil {
 // 重定向用户到authURL
 ```
 
+#### 7.4 服务端回调端点（推荐）
+
+第三方授权后由 **SSO 后端统一处理回调**（无需前端参与 code 交换）：
+
+- 回调端点：`GET /auth/callback/:provider`（如 `/auth/callback/github`）
+- GitHub 授权后 302 重定向到该端点（携带 `code` + `state`）
+- SSO 服务端依次执行：**校验 state（防 CSRF）→ 用 code 换 token → 调 LUM 完成登录/注册**
+- 成功后 302 重定向到 `frontend.callback_url`（配置项），token 通过 URL fragment 传递（不进入服务器日志）
+
+**配置示例**（config.yaml）：
+
+```yaml
+frontend:
+  # 回调成功后重定向的前端地址，前端从 URL fragment 中读取 token/refresh_token
+  callback_url: "http://localhost:3000"
+
+third_party:
+  github:
+    client_id: "<Client ID>"
+    client_secret: "<Client Secret>"
+    # 必须与 GitHub OAuth App 注册的 Authorization callback URL 的 scheme://host:port 完全一致
+    redirect_uri: "http://localhost:18080/auth/callback/github"
+```
+
+> **state 说明**：state 由 SSO 服务端生成（`GET /auth/third-party-login` 返回 `data.state`），
+> 回调时（`POST /auth/login` 或服务端回调端点）必须原样回传，校验通过后一次性销毁。
+
 ### 8. 生物识别登录（规划中）
 
 > ⚠️ 该功能后端尚未实现（依赖 LandcUserManager），SDK 方法调用会返回"接口不存在"，请勿在生产接入。

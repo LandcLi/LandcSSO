@@ -26,6 +26,10 @@ jwt:
   refreshTokenExpiry: 86400
   maxConcurrentSessions: 5
 
+frontend:
+  # 第三方 OAuth 回调成功后重定向的前端地址（token 通过 URL fragment 传递）
+  callback_url: "http://localhost:3000"
+
 third_party:
   wechat:
     app_id: "your-wechat-appid"

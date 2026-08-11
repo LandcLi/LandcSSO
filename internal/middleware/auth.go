@@ -14,6 +14,8 @@ var publicPrefixes = []string{
 	"/auth/refresh-token",
 	"/auth/register",
 	"/auth/third-party-login",
+	// 第三方 OAuth 授权回调（浏览器被第三方 302 重定向，无 Bearer token）
+	"/auth/callback",
 	"/auth/verify-auth-code",
 	"/auth/introspect",
 	"/getjwks",

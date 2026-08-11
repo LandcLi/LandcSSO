@@ -21,8 +21,15 @@ type Config struct {
 	Log        facade.LogConfig `yaml:"log"`
 	Mail       MailConfig       `yaml:"mail"`
 	SMS        SMSConfig        `yaml:"sms"`
+	Frontend   FrontendConfig   `yaml:"frontend"`
 	// ThirdParty 第三方登录配置（key=适配器类型，value=该类型配置项）
 	ThirdParty map[string]map[string]interface{} `yaml:"third_party"`
+}
+
+// FrontendConfig 前端回调配置
+type FrontendConfig struct {
+	// CallbackURL 第三方 OAuth 回调成功后重定向的前端地址（token 通过 URL fragment 传递）
+	CallbackURL string `yaml:"callback_url"`
 }
 
 type ServerConfig struct {
