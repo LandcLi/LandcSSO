@@ -6,8 +6,8 @@ USE `sso_db`;
 CREATE TABLE IF NOT EXISTS `tokens` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   `user_id` bigint(20) unsigned NOT NULL COMMENT '用户ID',
-  `access_token` varchar(500) NOT NULL COMMENT '访问令牌',
-  `refresh_token` varchar(500) NOT NULL COMMENT '刷新令牌',
+  `access_token` varchar(2048) NOT NULL COMMENT '访问令牌（RS256 JWT）',
+  `refresh_token` varchar(2048) NOT NULL COMMENT '刷新令牌（RS256 JWT）',
   `expires_at` datetime NOT NULL COMMENT '访问令牌过期时间',
   `refresh_expires_at` datetime NOT NULL COMMENT '刷新令牌过期时间',
   `client_id` varchar(100) DEFAULT NULL COMMENT '客户端ID',
@@ -18,8 +18,10 @@ CREATE TABLE IF NOT EXISTS `tokens` (
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_access_token` (`access_token`),
-  UNIQUE KEY `uk_refresh_token` (`refresh_token`),
+  -- 注意：RS256 JWT 较长（约 700 字符），整列索引会超过 InnoDB 3072 字节键上限，
+  -- 故使用前缀索引（255 字符）；token 唯一性由业务保证（随机生成，碰撞概率极低）
+  KEY `idx_access_token` (`access_token`(255)),
+  KEY `idx_refresh_token` (`refresh_token`(255)),
   KEY `idx_user_id` (`user_id`),
   KEY `idx_client_id` (`client_id`),
   KEY `idx_revoked` (`revoked`),

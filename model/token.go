@@ -8,8 +8,8 @@ import (
 type Token struct {
 	ID                uint      `json:"id" gorm:"primaryKey"`
 	UserID            uint      `json:"user_id" gorm:"index;not null"`
-	AccessToken       string    `json:"access_token" gorm:"size:500;not null"`
-	RefreshToken      string    `json:"refresh_token" gorm:"size:500;not null"`
+	AccessToken       string    `json:"access_token" gorm:"size:2048;not null"`
+	RefreshToken      string    `json:"refresh_token" gorm:"size:2048;not null"`
 	ExpiresAt         time.Time `json:"expires_at" gorm:"not null"`
 	RefreshExpiresAt  time.Time `json:"refresh_expires_at" gorm:"not null"`
 	ClientID          string    `json:"client_id" gorm:"size:100;index"`
