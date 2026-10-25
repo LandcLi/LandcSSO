@@ -14,16 +14,53 @@ import (
 var globalConfig *Config
 
 type Config struct {
-	Server     ServerConfig     `yaml:"server"`
-	Database   DatabaseConfig   `yaml:"database"`
-	Redis      RedisConfig      `yaml:"redis"`
-	JWT        JWTConfig        `yaml:"jwt"`
-	Log        facade.LogConfig `yaml:"log"`
-	Mail       MailConfig       `yaml:"mail"`
-	SMS        SMSConfig        `yaml:"sms"`
-	Frontend   FrontendConfig   `yaml:"frontend"`
+	Server   ServerConfig   `yaml:"server"`
+	Database DatabaseConfig `yaml:"database"`
+	Redis    RedisConfig    `yaml:"redis"`
+	JWT      JWTConfig      `yaml:"jwt"`
+	Mail     MailConfig     `yaml:"mail"`
+	SMS      SMSConfig      `yaml:"sms"`
+	Frontend FrontendConfig `yaml:"frontend"`
+	// 注意：log 段由框架（landc-go/frame/pkg/config）解析，
+	// 本结构不再重复定义，避免同一配置项出现两个不兼容的类型定义
+	// （框架为 string 级别，历史实现为 int 枚举，互相破坏解析）。
+	UserManager UserManagerConfig `yaml:"user_manager"`
+	Seed        SeedConfig        `yaml:"seed"`
 	// ThirdParty 第三方登录配置（key=适配器类型，value=该类型配置项）
 	ThirdParty map[string]map[string]interface{} `yaml:"third_party"`
+}
+
+// 用户中心的接入方式。
+const (
+	// UserManagerModeLocal 进程内复用 LandcUserManager（单二进制部署，推荐）
+	UserManagerModeLocal = "local"
+	// UserManagerModeRemote 通过 HTTP 调用独立部署的 LandcUserManager
+	UserManagerModeRemote = "remote"
+)
+
+// UserManagerConfig 描述用户中心（LandcUserManager）的接入方式。
+type UserManagerConfig struct {
+	// Mode: local | remote，默认 local
+	Mode string `yaml:"mode"`
+	// BaseURL 仅在 remote 模式使用，例如 http://127.0.0.1:18081
+	BaseURL string `yaml:"baseUrl"`
+}
+
+// SeedConfig 首次启动的种子数据。生产环境请关闭。
+type SeedConfig struct {
+	// Enabled 为 true 且 clients 表中不存在该 client_id 时，自动创建一个示例客户端，
+	// 便于新环境立刻走通授权码 / 客户端凭证流程。
+	Enabled    bool     `yaml:"enabled"`
+	ClientID   string   `yaml:"clientId"`
+	ClientSecret string `yaml:"clientSecret"`
+	// RedirectURIs 示例客户端允许的回调地址（精确匹配）
+	RedirectURIs []string `yaml:"redirectUris"`
+	Scope        string   `yaml:"scope"`
+}
+
+// IsLocal 用户中心是否运行在同一进程内。
+func (c UserManagerConfig) IsLocal() bool {
+	return c.Mode == "" || c.Mode == UserManagerModeLocal
 }
 
 // FrontendConfig 前端回调配置
@@ -128,8 +165,57 @@ func LoadConfig(path string) (*Config, error) {
 		cfg.JWT.PublicKeyPath = v
 	}
 
+	applyDefaults(&cfg)
+
 	globalConfig = &cfg
 	return &cfg, nil
+}
+
+// Init 显式加载配置，幂等。
+// 启动阶段调用它可以把「配置文件缺失/格式错误」变成明确的启动错误，
+// 而不是等到第一次 GetConfig() 才发现。
+func Init(path string) error {
+	if globalConfig != nil {
+		return nil
+	}
+	_, err := LoadConfig(path)
+	return err
+}
+
+// applyDefaults 填充未显式配置项的默认值。
+func applyDefaults(cfg *Config) {
+	if cfg.Server.Host == "" {
+		cfg.Server.Host = "0.0.0.0"
+	}
+	if cfg.Server.Port == 0 {
+		cfg.Server.Port = 8080
+	}
+	if cfg.UserManager.Mode == "" {
+		cfg.UserManager.Mode = UserManagerModeLocal
+	}
+	if cfg.UserManager.Mode == UserManagerModeRemote && cfg.UserManager.BaseURL == "" {
+		cfg.UserManager.BaseURL = "http://127.0.0.1:18081"
+	}
+	if cfg.JWT.SigningMethod == "" {
+		cfg.JWT.SigningMethod = "HS256"
+	}
+	if cfg.JWT.AccessTokenExpiry == 0 {
+		cfg.JWT.AccessTokenExpiry = 1800
+	}
+	if cfg.JWT.RefreshTokenExpiry == 0 {
+		cfg.JWT.RefreshTokenExpiry = 86400
+	}
+	if cfg.Seed.Enabled {
+		if cfg.Seed.ClientID == "" {
+			cfg.Seed.ClientID = "landc-sso-demo"
+		}
+		if cfg.Seed.Scope == "" {
+			cfg.Seed.Scope = "openid profile email"
+		}
+		if len(cfg.Seed.RedirectURIs) == 0 {
+			cfg.Seed.RedirectURIs = []string{"http://localhost:3000/callback"}
+		}
+	}
 }
 
 // AllowedOrigins 返回 CORS 允许的 Origin 白名单

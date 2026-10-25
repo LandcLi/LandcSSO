@@ -14,20 +14,17 @@ func TestKeyPersistence(t *testing.T) {
 	privPath := filepath.Join(dir, "private.pem")
 	pubPath := filepath.Join(dir, "public.pem")
 
-	s := &keyServiceImpl{
-		config: config.JWTConfig{
-			PrivateKeyPath: privPath,
-			PublicKeyPath:  pubPath,
-		},
-		keys: make(map[string]*key),
-	}
+	s := newKeyServiceWithConfig(config.JWTConfig{
+		PrivateKeyPath: privPath,
+		PublicKeyPath:  pubPath,
+	})
 
 	// 生成并保存
 	k, err := s.GenerateKey()
 	if err != nil {
 		t.Fatalf("GenerateKey() 失败: %v", err)
 	}
-	s.saveKeyToFiles(k)
+	s.mu.Lock(); s.saveKeyToFilesLocked(k); s.mu.Unlock()
 
 	// 验证文件已创建
 	if _, err := os.Stat(privPath); err != nil {
@@ -38,14 +35,11 @@ func TestKeyPersistence(t *testing.T) {
 	}
 
 	// 模拟重启：用同一路径构造新实例加载
-	s2 := &keyServiceImpl{
-		config: config.JWTConfig{
-			PrivateKeyPath: privPath,
-			PublicKeyPath:  pubPath,
-		},
-		keys: make(map[string]*key),
-	}
-	if !s2.loadKeyFromFiles() {
+	s2 := newKeyServiceWithConfig(config.JWTConfig{
+		PrivateKeyPath: privPath,
+		PublicKeyPath:  pubPath,
+	})
+	if !s2.loadKeyFromFilesLocked() {
 		t.Fatal("loadKeyFromFiles() 失败")
 	}
 
@@ -68,14 +62,11 @@ func TestKeyPersistence(t *testing.T) {
 // TestLoadKeyFromFilesNotExist 无密钥文件时返回 false，触发重新生成
 func TestLoadKeyFromFilesNotExist(t *testing.T) {
 	dir := t.TempDir()
-	s := &keyServiceImpl{
-		config: config.JWTConfig{
-			PrivateKeyPath: filepath.Join(dir, "no-private.pem"),
-			PublicKeyPath:  filepath.Join(dir, "no-public.pem"),
-		},
-		keys: make(map[string]*key),
-	}
-	if s.loadKeyFromFiles() {
+	s := newKeyServiceWithConfig(config.JWTConfig{
+		PrivateKeyPath: filepath.Join(dir, "no-private.pem"),
+		PublicKeyPath:  filepath.Join(dir, "no-public.pem"),
+	})
+	if s.loadKeyFromFilesLocked() {
 		t.Error("文件不存在时应返回 false")
 	}
 }

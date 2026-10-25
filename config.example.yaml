@@ -1,3 +1,18 @@
+# LandcSSO 配置示例
+#
+# 快速开始（零外部依赖，单二进制）：
+#   cp config.example.yaml config.yaml
+#   go run ./cmd/api
+#
+# 默认使用 SQLite + 进程内复用 LandcUserManager，启动时自动建表并写入示例客户端。
+# 示例客户端：client_id=landc-sso-demo / client_secret=landc-sso-demo-secret
+#            redirect_uri=http://localhost:3000/callback
+#
+# 切换到生产形态：
+#   database.driver: mysql + dsn，并设 auto_migrate: false（改用 sqls/init.sql）
+#   seed.enabled: false（改由管理接口创建客户端）
+#   user_manager.mode: remote + baseUrl（LUM 独立部署时）
+
 server:
   addr: "0.0.0.0"
   port: 8080
@@ -7,18 +22,43 @@ server:
     - "http://localhost:3001"
 
 database:
-  driver: "mysql"
-  # 生产环境请使用环境变量注入 DSN，勿写入配置文件
-  dsn: "user:password@tcp(127.0.0.1:3306)/sso_db?charset=utf8mb4&parseTime=True&loc=Local"
+  # sqlite（默认，纯 Go 驱动，无需 CGO/gcc）| mysql | postgres
+  driver: "sqlite"
+  dsn: "data/sso.db"
+  # 开发/测试自动建表；生产请设 false 并执行 sqls/init.sql
+  auto_migrate: true
   max_idle_conns: 10
   max_open_conns: 100
   conn_max_lifetime: 3600
 
+redis:
+  # 留空则使用进程内缓存（单实例可用；多实例部署必须配置 Redis）
+  addr: ""
+  password: ""
+  db: 0
+
+# 用户中心（LandcUserManager）接入方式
+user_manager:
+  # local:  进程内复用（默认，单二进制部署，无 HTTP 跳转）
+  # remote: 调用独立部署的 LUM
+  mode: "local"
+  baseUrl: "http://127.0.0.1:18081"
+
+# 首次启动种子数据（生产请关闭）
+seed:
+  enabled: true
+  clientId: "landc-sso-demo"
+  clientSecret: "landc-sso-demo-secret"
+  redirectUris:
+    - "http://localhost:3000/callback"
+  scope: "openid profile email"
+
 jwt:
-  # landc-go v0.5.0 强制：HS256 密钥长度必须 >= 32 字符，否则初始化失败
+  # HS256 密钥长度必须 >= 32 字符，否则初始化失败
   # 生产环境推荐通过环境变量 LANDC_JWT_SECRET 注入，勿写入配置文件
   signingMethod: "HS256"
   secret: "change-me-to-a-random-secret-at-least-32-chars"
+  # 使用 RS256 时填写（JWKS 端点会导出公钥）
   privateKeyPath: "./keys/private.pem"
   publicKeyPath: "./keys/public.pem"
   issuer: "sso-server"
@@ -66,6 +106,7 @@ sms:
 
 log:
   provider: "console"
-  level: 1
+  # 框架日志级别为字符串：debug | info | warn | error
+  level: "info"
   format: "text"
   outputPath: "stdout"

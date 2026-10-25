@@ -20,115 +20,129 @@ LandcSSO是一个基于Go语言开发的单点登录（SSO）系统，支持OAut
 
 ## 技术栈
 
-- **后端**：Go 1.24.0 + Gin框架
-- **数据存储**：MySQL + Redis
-- **认证协议**：OAuth 2.0 + OpenID Connect
-- **安全**：JWT + RSA + HTTPS
-- **日志**：landc-go/log
-- **API响应**：landc-go/api
-- **框架**：landc-go/mvc（DI / Gateway）
+- **后端**：Go 1.26 + Gin
+- **框架**：`github.com/LandcLi/landc-go/frame`（配置 / DB / 缓存 / JWT / DI / Web / 健康检查 / 限流）
+- **数据存储**：SQLite（默认，纯 Go 驱动，零外部依赖）｜MySQL（生产）｜Redis（可选，缺失时降级为进程内缓存）
+- **认证协议**：OAuth 2.0 + OpenID Connect（授权码 + PKCE、客户端凭证、刷新令牌、密码、令牌自省、JWKS、Discovery）
+- **用户数据**：LandcUserManager 统一维护，SSO 只持有 OAuth2/OIDC 自身数据
+
+## 职责边界
+
+| 系统 | 负责 |
+| --- | --- |
+| **LandcSSO**（本仓库） | 客户端注册、授权码、令牌签发与校验、会话、审计、OIDC 元数据 |
+| **LandcUserManager** | 用户账号、密码、登录历史、可信设备、第三方账号绑定 |
+| **LandcPermission** / **LandcOrg** | 角色权限、组织架构（由业务方按需接入） |
+
+SSO 不直接读写用户表：用户相关操作全部经 `LandcUserManager`。
+`user_manager.mode` 可选 `local`（进程内，单二进制部署）或 `remote`（独立部署，HTTP 调用），
+两种模式下 SSO 的代码路径完全一致。
 
 ## 目录结构
 
 ```
-LandcSSO/
-├── cmd/              # 命令行入口
-│   └── api/          # API服务入口
-├── api/              # API路由和控制器接口
-│   └── auth/         # 认证接口定义
-├── internal/         # 内部包
-│   ├── controller/   # 控制器实现
-│   ├── serviceimpl/  # 服务实现
-│   └── daoimpl/      # 数据访问实现
-├── service/          # 服务层接口
-├── dao/              # 数据访问层接口
-├── model/            # 数据模型
-├── middleware/       # 中间件
-├── utility/          # 工具包
-│   ├── sdk/          # 服务提供方SDK
-│   ├── config/       # 配置管理
-│   └── logger/       # 日志管理
-├── tests/            # 测试文件
-├── sqls/             # SQL脚本
-├── config.yml        # 配置文件
-├── go.mod            # 依赖管理
-└── README.md         # 项目说明
+cmd/api/              独立部署入口（thin main）
+api/                  接口定义（请求/响应 + meta 路由标签）
+internal/
+  controller/         控制器
+  service_impl/       业务实现（auth / client / key / session / third_party / audit / monitor）
+  dao_impl/           数据访问实现
+  middleware/         鉴权、CORS、上下文增强、请求日志
+  cmd/                命令注册
+model/                数据模型
+serverlib/            库模式入口（RegisterToRouter / EnsureSchema / Seed）
+service/              服务接口
+dao/                  数据访问接口
+utility/config/       类型化配置（log 段由框架解析）
+utility/security/     密码/密钥哈希
+sqls/                 MySQL 初始化脚本
+docs/                 API 文档
+tests/sqlite/         SQLite 端到端冒烟
 ```
 
 ## 快速开始
 
 ### 1. 环境准备
 
-- Go 1.24.0或更高版本
-- MySQL 5.7或更高版本
-- Redis 5.0或更高版本
+- Go 1.26 或更高版本
+- 无需 MySQL / Redis：默认使用 SQLite + 进程内缓存
 
-### 2. 安装依赖
+### 2. 生成配置并启动
 
 ```bash
-go mod tidy
+cp config.example.yaml config.yaml
+go run ./cmd/api
 ```
 
-### 3. 数据库初始化
+首次启动会自动：
+1. 在 `data/sso.db` 创建 SQLite 库并建表（`database.auto_migrate: true`）
+2. 写入示例 OAuth 客户端（`seed.enabled: true`）：
+   - `client_id`: `landc-sso-demo`
+   - `client_secret`: `landc-sso-demo-secret`
+   - `redirect_uri`: `http://localhost:3000/callback`
+3. 在进程内装配 LandcUserManager（`user_manager.mode: local`），用户表建在同一库中
 
-执行SQL脚本初始化数据库：
+服务在 `http://localhost:8080` 启动。
+
+### 3. 验证
+
+```bash
+# 健康检查
+curl http://127.0.0.1:8080/health
+
+# OIDC Discovery
+curl http://127.0.0.1:8080/.well-known/openid-configuration
+
+# 客户端凭证模式取令牌（响应为框架统一包装：{code,message,data}）
+curl -X POST http://127.0.0.1:8080/auth/token \
+  -H 'Content-Type: application/json' \
+  -d '{"grant_type":"client_credentials",
+       "client_id":"landc-sso-demo",
+       "client_secret":"landc-sso-demo-secret"}'
+```
+
+### 4. 切换到生产形态
+
+```yaml
+database:
+  driver: "mysql"
+  dsn: "user:password@tcp(127.0.0.1:3306)/sso_db?charset=utf8mb4&parseTime=True&loc=Local"
+  auto_migrate: false        # 改用 sqls/init.sql
+
+redis:
+  addr: "redis:6379"         # 多实例部署必须配置
+
+seed:
+  enabled: false             # 改用 /client/create 管理接口创建客户端
+
+user_manager:
+  mode: "remote"             # LUM 独立部署时
+  baseUrl: "http://lum:18081"
+```
 
 ```bash
 mysql -u root -p < sqls/init.sql
 ```
 
-### 4. 配置文件
+### 5. 作为库嵌入（进程内组合）
 
-修改`config.yml`文件，配置数据库、Redis等参数：
-
-```yaml
-server:
-  port: 8080
-  host: "0.0.0.0"
-  mode: "debug"
-
-database:
-  driver: "mysql"
-  host: "localhost"
-  port: 3306
-  user: "root"
-  password: "root"
-  dbname: "sso"
-  charset: "utf8mb4"
-  parseTime: true
-  loc: "Local"
-
-redis:
-  host: "localhost"
-  port: 6379
-  password: ""
-  db: 0
-  poolSize: 10
-
-jwt:
-  secret: "your-secret-key"
-  issuer: "sso-server"
-  accessTokenExpiry: 1800  # 30分钟
-  refreshTokenExpiry: 86400  # 24小时
-  maxConcurrentSessions: 5  # 最大并发会话数
-  signingMethod: "HS256"  # 签名方法（HS256/RS256）
-  privateKeyPath: ""  # RSA私钥路径（RS256时使用）
-  publicKeyPath: ""  # RSA公钥路径（RS256时使用）
-
-log:
-  provider: "console"
-  level: "info"
-  format: "text"
-  outputPath: "stdout"
+```go
+server := web.New()
+if err := serverlib.RegisterToRouter(server); err != nil {
+    return err
+}
+return server.RunWithContext(ctx)
 ```
 
-### 5. 启动服务
+`RegisterToRouter` 内部完成建表、种子数据、用户中心接入、中间件与路由注册；
+`internal/cmd` 的独立部署入口只是它的薄封装，两种形态行为一致。
 
-```bash
-go run cmd/api/main.go
-```
+## 响应约定
 
-服务将在 `http://localhost:8080` 启动。
+成功：HTTP 200 + `{"code":10000,"message":"success","data":{...}}`（框架统一包装，
+`landc-go` 的 SDK / `di.Call` 会自动解包 `data`）。
+失败：非 2xx + `{"code":<业务错误码>,"message":"..."}`。
+
 
 ## 使用示例
 

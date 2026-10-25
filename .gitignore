@@ -47,3 +47,11 @@ config.local.yaml
 steps/
 需求解析.md
 design.md
+
+# 运行期数据（SQLite 库等）与本地构建产物
+data/
+bin/
+*.db
+*.db-shm
+*.db-wal
+keys/

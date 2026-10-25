@@ -32,24 +32,27 @@ func init() {
 	}
 }
 
-type authServiceImpl struct {
-	config *config.Config
+type authServiceImpl struct{}
+
+// NewAuthServiceImpl 构造认证服务。
+// 不在构造期读取配置：本类型的实例在包 init() 中创建，
+// 此时配置/DB 尚未就绪，提前读取会 panic（且任何 import 本包的宿主都会连带崩溃）。
+// 所有依赖改为在调用期惰性获取。
+func NewAuthServiceImpl() *authServiceImpl {
+	return &authServiceImpl{}
 }
 
-func NewAuthServiceImpl() *authServiceImpl {
-	cfg := config.GetConfig()
-	if cfg == nil {
-		panic("failed to load config")
+// cfg 惰性获取配置，始终返回非 nil（缺失时返回空配置以免调用点 nil panic）。
+func (s *authServiceImpl) cfg() *config.Config {
+	if cfg := config.GetConfig(); cfg != nil {
+		return cfg
 	}
-
-	return &authServiceImpl{
-		config: cfg,
-	}
+	return &config.Config{}
 }
 
 // generateAccessToken 生成访问令牌（expiresIn 秒）
 func (s *authServiceImpl) generateAccessToken(userID uint, clientID string, ip string, deviceFingerprint string) (string, int, error) {
-	expiresIn := s.config.JWT.AccessTokenExpiry
+	expiresIn := s.cfg().JWT.AccessTokenExpiry
 	token, err := frameauth.GenerateTokenWithOpts(userID, "", frameauth.GenerateTokenOption{
 		ClientID:          clientID,
 		Scope:             "openid profile email",
@@ -66,7 +69,7 @@ func (s *authServiceImpl) generateAccessToken(userID uint, clientID string, ip s
 
 // generateRefreshToken 生成刷新令牌
 func (s *authServiceImpl) generateRefreshToken(userID uint, clientID string) (string, int, error) {
-	expiresIn := s.config.JWT.RefreshTokenExpiry
+	expiresIn := s.cfg().JWT.RefreshTokenExpiry
 	token, err := frameauth.GenerateTokenWithOpts(userID, "", frameauth.GenerateTokenOption{
 		ClientID:  clientID,
 		TokenType: "refresh",
@@ -123,11 +126,7 @@ func (s *authServiceImpl) Login(ctx context.Context, userID uint, differentLocat
 
 // generateTokens 生成令牌
 func (s *authServiceImpl) generateTokens(ctx context.Context, userID uint, clientID string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
-	if s.config == nil {
-		return nil, errors.New("配置未初始化")
-	}
-
-	if s.config.JWT.MaxConcurrentSessions > 0 {
+	if s.cfg().JWT.MaxConcurrentSessions > 0 {
 		if err := s.checkConcurrentSessions(userID); err != nil {
 			return nil, err
 		}
@@ -188,7 +187,7 @@ func (s *authServiceImpl) checkConcurrentSessions(userID uint) error {
 		}
 	}
 
-	if len(validTokens) >= s.config.JWT.MaxConcurrentSessions {
+	if len(validTokens) >= s.cfg().JWT.MaxConcurrentSessions {
 		var oldestToken *model.Token
 		for _, token := range validTokens {
 			if oldestToken == nil || token.CreatedAt.Before(oldestToken.CreatedAt) {
@@ -594,7 +593,7 @@ func (s *authServiceImpl) Introspect(ctx context.Context, tokenString string, ip
 		Exp:       token.ExpiresAt.Unix(),
 		Iat:       token.CreatedAt.Unix(),
 		Nbf:       token.CreatedAt.Unix(),
-		Iss:       s.config.JWT.Issuer,
+		Iss:       s.cfg().JWT.Issuer,
 		Sub:       claims.UserID,
 		Aud:       claims.ClientID,
 	}, nil

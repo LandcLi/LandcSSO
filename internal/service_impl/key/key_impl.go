@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/LandcLi/LandcSSO/service"
@@ -34,42 +35,77 @@ type key struct {
 }
 
 type keyServiceImpl struct {
-	config config.JWTConfig
-	keys   map[string]*key
+	mu       sync.RWMutex
+	initOnce sync.Once
+	keys     map[string]*key
+	// fixedCfg 非空时优先于全局配置（仅供测试注入，生产代码保持 nil）
+	fixedCfg *config.JWTConfig
 }
 
+// NewKeyServiceImpl 构造密钥服务。
+//
+// 不在构造期读写密钥文件：本实例在包 init() 中创建，此时配置尚未加载，
+// 且「import 即写盘」会让任何引用本包的宿主产生意外的文件副作用。
+// 密钥改为首次使用时惰性加载/生成。
 func NewKeyServiceImpl() *keyServiceImpl {
-	s := &keyServiceImpl{
+	return &keyServiceImpl{
 		keys: make(map[string]*key),
 	}
-	if cfg := config.GetConfig(); cfg != nil {
-		s.config = cfg.JWT
-	}
-
-	// 优先从持久化文件加载密钥，保证重启后 kid 稳定（OIDC 依赖方可持续验证）
-	if !s.loadKeyFromFiles() {
-		if k, err := s.GenerateKey(); err != nil {
-			facade.Errorf("生成RSA密钥失败: %v", err)
-		} else {
-			facade.Infof("已生成新的RSA密钥: %s", k.ID)
-			s.saveKeyToFiles(k)
-		}
-	}
-	return s
 }
 
-// loadKeyFromFiles 从 privateKeyPath/publicKeyPath 加载 RSA 密钥对
-func (s *keyServiceImpl) loadKeyFromFiles() bool {
-	if s.config.PrivateKeyPath == "" || s.config.PublicKeyPath == "" {
+// newKeyServiceWithConfig 用显式配置构造实例，避免测试依赖全局配置。
+func newKeyServiceWithConfig(cfg config.JWTConfig) *keyServiceImpl {
+	return &keyServiceImpl{
+		keys:     make(map[string]*key),
+		fixedCfg: &cfg,
+	}
+}
+
+// cfg 惰性获取 JWT 配置，缺失时返回零值（调用方按「未配置」处理）。
+func (s *keyServiceImpl) cfg() config.JWTConfig {
+	if s.fixedCfg != nil {
+		return *s.fixedCfg
+	}
+	if cfg := config.GetConfig(); cfg != nil {
+		return cfg.JWT
+	}
+	return config.JWTConfig{}
+}
+
+// ensureInitialized 首次使用时加载或生成密钥，幂等。
+func (s *keyServiceImpl) ensureInitialized() {
+	s.initOnce.Do(func() {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+
+		// 优先从持久化文件加载密钥，保证重启后 kid 稳定（OIDC 依赖方可持续验证）
+		if s.loadKeyFromFilesLocked() {
+			return
+		}
+		k, err := s.generateKeyLocked()
+		if err != nil {
+			facade.Errorf("生成RSA密钥失败: %v", err)
+			return
+		}
+		facade.Infof("已生成新的RSA密钥: %s", k.ID)
+		s.saveKeyToFilesLocked(k)
+	})
+}
+
+// loadKeyFromFilesLocked 从 privateKeyPath/publicKeyPath 加载 RSA 密钥对。
+// 调用方需持有写锁。
+func (s *keyServiceImpl) loadKeyFromFilesLocked() bool {
+	cfg := s.cfg()
+	if cfg.PrivateKeyPath == "" || cfg.PublicKeyPath == "" {
 		return false
 	}
 
-	privPEM, err := os.ReadFile(s.config.PrivateKeyPath)
+	privPEM, err := os.ReadFile(cfg.PrivateKeyPath)
 	if err != nil {
 		facade.Warnf("读取私钥文件失败（将重新生成）: %v", err)
 		return false
 	}
-	pubPEM, err := os.ReadFile(s.config.PublicKeyPath)
+	pubPEM, err := os.ReadFile(cfg.PublicKeyPath)
 	if err != nil {
 		facade.Warnf("读取公钥文件失败（将重新生成）: %v", err)
 		return false
@@ -101,32 +137,33 @@ func (s *keyServiceImpl) loadKeyFromFiles() bool {
 	return true
 }
 
-// saveKeyToFiles 将密钥对持久化到文件，避免重启丢失
-func (s *keyServiceImpl) saveKeyToFiles(k *service.Key) {
-	if s.config.PrivateKeyPath == "" || s.config.PublicKeyPath == "" {
+// saveKeyToFilesLocked 将密钥对持久化到文件，避免重启丢失。调用方需持有写锁。
+func (s *keyServiceImpl) saveKeyToFilesLocked(k *service.Key) {
+	cfg := s.cfg()
+	if cfg.PrivateKeyPath == "" || cfg.PublicKeyPath == "" {
 		return
 	}
 
-	if err := os.MkdirAll(filepath.Dir(s.config.PrivateKeyPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cfg.PrivateKeyPath), 0700); err != nil {
 		facade.Errorf("创建密钥目录失败: %v", err)
 		return
 	}
-	if err := os.MkdirAll(filepath.Dir(s.config.PublicKeyPath), 0700); err != nil {
+	if err := os.MkdirAll(filepath.Dir(cfg.PublicKeyPath), 0700); err != nil {
 		facade.Errorf("创建密钥目录失败: %v", err)
 		return
 	}
 
 	if priv, err := s.GetPrivateKeyPEM(k); err == nil {
-		if err := os.WriteFile(s.config.PrivateKeyPath, []byte(priv), keyFileMode); err != nil {
+		if err := os.WriteFile(cfg.PrivateKeyPath, []byte(priv), keyFileMode); err != nil {
 			facade.Errorf("保存私钥失败: %v", err)
 		}
 	}
 	if pub, err := s.GetPublicKeyPEM(k); err == nil {
-		if err := os.WriteFile(s.config.PublicKeyPath, []byte(pub), keyFileMode); err != nil {
+		if err := os.WriteFile(cfg.PublicKeyPath, []byte(pub), keyFileMode); err != nil {
 			facade.Errorf("保存公钥失败: %v", err)
 		}
 	}
-	facade.Infof("RSA密钥已持久化: %s -> %s", s.config.PrivateKeyPath, s.config.PublicKeyPath)
+	facade.Infof("RSA密钥已持久化: %s -> %s", cfg.PrivateKeyPath, cfg.PublicKeyPath)
 }
 
 // parsePrivateKey 解析 PEM 私钥（兼容 PKCS1 / PKCS8）
@@ -184,6 +221,13 @@ func init() {
 }
 
 func (s *keyServiceImpl) GenerateKey() (*service.Key, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.generateKeyLocked()
+}
+
+// generateKeyLocked 生成新密钥并放入内存表。调用方需持有写锁。
+func (s *keyServiceImpl) generateKeyLocked() (*service.Key, error) {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		facade.Errorf("生成RSA密钥对失败: %v", err)
@@ -211,6 +255,10 @@ func (s *keyServiceImpl) GenerateKey() (*service.Key, error) {
 }
 
 func (s *keyServiceImpl) GetKey(keyID string) (*service.Key, error) {
+	s.ensureInitialized()
+
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 	key, exists := s.keys[keyID]
 	if !exists {
 		return nil, errors.New("密钥不存在")
@@ -230,23 +278,28 @@ func (s *keyServiceImpl) GetKey(keyID string) (*service.Key, error) {
 }
 
 func (s *keyServiceImpl) GetCurrentKey() (*service.Key, error) {
-	if len(s.keys) == 0 {
-		return s.GenerateKey()
-	}
+	s.ensureInitialized()
 
+	s.mu.RLock()
 	for _, key := range s.keys {
 		if time.Now().Before(key.ExpiresAt) {
-			return &service.Key{
+			out := &service.Key{
 				ID:         key.ID,
 				PrivateKey: key.PrivateKey,
 				PublicKey:  key.PublicKey,
 				CreatedAt:  key.CreatedAt.Unix(),
 				ExpiresAt:  key.ExpiresAt.Unix(),
-			}, nil
+			}
+			s.mu.RUnlock()
+			return out, nil
 		}
 	}
+	s.mu.RUnlock()
 
-	return s.GenerateKey()
+	// 无可用密钥（首次或全部过期）：生成一把新的
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.generateKeyLocked()
 }
 
 func (s *keyServiceImpl) GetPublicKeyPEM(key *service.Key) (string, error) {
@@ -292,6 +345,10 @@ func (s *keyServiceImpl) GetPrivateKeyPEM(key *service.Key) (string, error) {
 }
 
 func (s *keyServiceImpl) RevokeKey(keyID string) error {
+	s.ensureInitialized()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	_, exists := s.keys[keyID]
 	if !exists {
 		return errors.New("密钥不存在")
@@ -303,6 +360,10 @@ func (s *keyServiceImpl) RevokeKey(keyID string) error {
 }
 
 func (s *keyServiceImpl) CleanExpiredKeys() {
+	s.ensureInitialized()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for keyID, key := range s.keys {
 		if time.Now().After(key.ExpiresAt) {
 			delete(s.keys, keyID)
