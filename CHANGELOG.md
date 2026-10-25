@@ -42,3 +42,11 @@
   `GetClientDao()` 返回 nil 导致空指针。现由 `serverlib` 自带注册链。
 - `api.RegisterDefaultRoutes` 返回 error 而非 `panic`，路由注册失败可在启动阶段明确报错。
 - 清理历史遗留的 `bin/`、`data/` 产物。
+
+### 变更
+
+- 依赖升级到 `landc-go/frame v0.8.5`。该版本修复了两个会让服务
+  「看起来在跑、实际不可用」的框架缺陷：配置文件省略字段退化为零值
+  （导致 `health_check.enabled`、`use_default_routes` 被静默关闭），
+  以及 JWT 鉴权中间件拦截健康检查端点。
+  升级后 `/health` 与 `/ready` 无需 Token 即可访问，编排系统探针可用。
