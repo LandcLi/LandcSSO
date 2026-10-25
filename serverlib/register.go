@@ -97,6 +97,9 @@ func RegisterToRouter(s *web.Server, opts ...Option) error {
 		return err
 	}
 
+	// 后台清理过期令牌/授权码（受 token_cleanup.enabled 控制，默认开启）。
+	startTokenCleanup(cfg.TokenCleanup)
+
 	// 用户中心接入
 	mode := cfg.UserManager.Mode
 	baseURL := cfg.UserManager.BaseURL

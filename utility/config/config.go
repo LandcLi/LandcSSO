@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"time"
 
 	framecache "github.com/LandcLi/landc-go/frame/pkg/cache"
 	framedb "github.com/LandcLi/landc-go/frame/pkg/db"
@@ -26,6 +27,8 @@ type Config struct {
 	// （框架为 string 级别，历史实现为 int 枚举，互相破坏解析）。
 	UserManager UserManagerConfig `yaml:"user_manager"`
 	Seed        SeedConfig        `yaml:"seed"`
+	// TokenCleanup 过期令牌/授权码的定时物理清理配置。
+	TokenCleanup TokenCleanupConfig `yaml:"token_cleanup"`
 	// ThirdParty 第三方登录配置（key=适配器类型，value=该类型配置项）
 	ThirdParty map[string]map[string]interface{} `yaml:"third_party"`
 }
@@ -47,8 +50,7 @@ type UserManagerConfig struct {
 }
 
 // SeedConfig 首次启动的种子数据。生产环境请关闭。
-type SeedConfig struct {
-	// Enabled 为 true 且 clients 表中不存在该 client_id 时，自动创建一个示例客户端，
+type SeedConfig struct { // Enabled 为 true 且 clients 表中不存在该 client_id 时，自动创建一个示例客户端，
 	// 便于新环境立刻走通授权码 / 客户端凭证流程。
 	Enabled      bool   `yaml:"enabled"`
 	ClientID     string `yaml:"clientId"`
@@ -61,6 +63,26 @@ type SeedConfig struct {
 // IsLocal 用户中心是否运行在同一进程内。
 func (c UserManagerConfig) IsLocal() bool {
 	return c.Mode == "" || c.Mode == UserManagerModeLocal
+}
+
+// TokenCleanupConfig 过期令牌/授权码的定时物理清理策略。
+//
+// tokens 与 authorization_codes 两张表此前只有写入、从不清理：每次 login /
+// refresh / 授权码签发都 INSERT 一条，长期运行会无限增长。这里用后台定时任务
+// 物理删除已过期（refresh 已过期）或已撤销的令牌，以及过期授权码。
+type TokenCleanupConfig struct {
+	// Enabled 为 true 时启动后台清理任务，默认 true。
+	Enabled bool `yaml:"enabled"`
+	// IntervalSeconds 清理间隔（秒），默认 3600（1 小时）。
+	IntervalSeconds int `yaml:"interval_seconds"`
+}
+
+// Interval 返回清理间隔；未配置或非法时回落默认 1 小时。
+func (c TokenCleanupConfig) Interval() time.Duration {
+	if c.IntervalSeconds <= 0 {
+		return time.Hour
+	}
+	return time.Duration(c.IntervalSeconds) * time.Second
 }
 
 // FrontendConfig 前端回调配置

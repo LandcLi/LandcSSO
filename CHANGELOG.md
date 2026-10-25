@@ -4,6 +4,20 @@
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.3] - 2026-10-26
+
+### 新增
+
+- **过期令牌/授权码的后台物理清理**。`tokens` 与 `authorization_codes` 两张表
+  此前只有写入、从不清理：每次 login / refresh / 授权码签发都 INSERT 一条，
+  长期运行会无限增长。现在 `serverlib.RegisterToRouter` 装配时启动一个后台
+  定时任务（受 `token_cleanup.enabled` 控制，默认开启，默认每 1 小时一次），
+  物理删除「refresh 已过期」或「已撤销」的令牌，以及过期授权码。
+  - 关键语义：只按 `refresh_expires_at` 判断过期，不用 `expires_at` ——
+    access 过期但 refresh 未过期时用户仍可刷新，提前删会断裂 refresh 链。
+  - `tokenDao.DeleteExpiredTokens(now)` 返回删除条数，供运维/日志观测。
+  - 单独失败只记日志，不中断后台任务。
+
 ## [0.2.2] - 2026-10-25
 
 ### 新增

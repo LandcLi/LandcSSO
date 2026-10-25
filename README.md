@@ -587,6 +587,16 @@ for _, event := range exceptionEvents.Events {
 | database.parseTime | bool | true | 是否解析时间 |
 | database.loc | string | "Local" | 时区 |
 
+### 令牌清理配置
+
+| 配置项 | 类型 | 默认值 | 描述 |
+|-------|------|-------|------|
+| token_cleanup.enabled | bool | true | 是否启用过期令牌/授权码后台清理 |
+| token_cleanup.interval_seconds | int | 3600 | 清理间隔（秒） |
+
+后台任务在装配（`RegisterToRouter`）时启动，周期物理删除「refresh 已过期」或
+「已撤销」的令牌，以及过期授权码，避免 `tokens` / `authorization_codes` 表无限增长。
+
 ### Redis配置
 
 | 配置项 | 类型 | 默认值 | 描述 |

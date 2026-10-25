@@ -211,6 +211,16 @@ func (r *tokenDaoImpl) DeleteExpiredCodes() error {
 	return r.getDB().Where("expires_at < NOW()").Delete(&model.AuthorizationCode{}).Error
 }
 
+// DeleteExpiredTokens 物理删除已无用的令牌记录。
+// 删除条件：refresh 令牌已过期（此时无论如何都不能再刷新），或已撤销。
+// 注意不能用 expires_at（access 过期）判断：access 过期但 refresh 未过期时，
+// 用户仍可凭 refresh 换取新令牌，此时删记录会导致 refresh 链断裂。
+func (r *tokenDaoImpl) DeleteExpiredTokens(now time.Time) (int64, error) {
+	db := r.getDB().Where("refresh_expires_at < ? OR revoked = ?", now, true)
+	res := db.Delete(&model.Token{})
+	return res.RowsAffected, res.Error
+}
+
 func (r *tokenDaoImpl) GetRedisClient() redis.UniversalClient {
 	return r.getRedis()
 }
