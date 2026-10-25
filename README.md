@@ -90,8 +90,15 @@ go run ./cmd/api
 # 健康检查
 curl http://127.0.0.1:8080/health
 
-# OIDC Discovery
+# OIDC Discovery（匿名可访问，返回扁平 JSON，不套 {code,message,data}）
 curl http://127.0.0.1:8080/.well-known/openid-configuration
+
+# 签名公钥（jwks_uri，匿名可访问）
+curl http://127.0.0.1:8080/auth/jwks
+
+# 当前令牌对应的用户信息（需 Bearer）
+curl http://127.0.0.1:8080/auth/userinfo \
+  -H "Authorization: Bearer <access_token>"
 
 # 客户端凭证模式取令牌（响应为框架统一包装：{code,message,data}）
 curl -X POST http://127.0.0.1:8080/auth/token \
@@ -185,6 +192,31 @@ grant_type=authorization_code&code=authorization_code&client_id=test-client&clie
 GET /auth/userinfo
 Authorization: Bearer access_token
 ```
+
+返回标准的扁平 JSON（不套 `{code,message,data}`）：
+
+```json
+{
+  "sub": "1001",
+  "preferred_username": "alice",
+  "name": "Alice",
+  "email": "alice@example.com",
+  "email_verified": false,
+  "phone_number": "13800000000",
+  "picture": "https://.../avatar.png"
+}
+```
+
+`sub` 是用户的稳定标识（十进制 userID），客户端应当把它当作本地账号的
+外部主键长期保存。用户档案（邮箱/昵称/头像）由 LandcUserManager 提供，
+SSO 只保管认证与令牌，不重复存一份。
+
+> **能力边界（重要）**：本服务当前签发 `access_token` / `refresh_token`，
+> **不签发 `id_token`**。因此它是「OAuth2 授权服务器 + OIDC 的 userinfo/jwks
+> 子集」，而不是完整的 OIDC Provider。接入方请用 `authorization_code`
+> 换令牌后调 `/auth/userinfo` 取用户信息，不要期待 ID Token 里的 claims。
+> `/.well-known/openid-configuration` 如实声明了这一点（`response_types_supported`
+> 只有 `code`）。
 
 ### 2. 刷新令牌模式
 

@@ -9,6 +9,10 @@ import (
 )
 
 var publicPrefixes = []string{
+	// OIDC Discovery 与 JWKS 必须匿名可访问：
+	// 客户端在拿到任何凭据之前就要拉 discovery，验证签名又要拉 JWKS。
+	"/.well-known/",
+	"/auth/jwks",
 	"/auth/login",
 	"/auth/token",
 	"/auth/refresh-token",

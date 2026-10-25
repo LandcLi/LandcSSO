@@ -22,5 +22,18 @@ func RegisterDefaultRoutes(server *web.Server) error {
 	// 第三方 OAuth 授权回调端点（GET + 302 重定向，需 gin 原生路由）
 	// 浏览器被第三方授权后重定向到 /auth/callback/:provider?code=xxx&state=xxx
 	server.Engine().GET("/auth/callback/:provider", authcontroller.ThirdPartyCallbackHandler)
+
+	// --- OIDC 标准只读端点 ---
+	//
+	// 这三条此前只有实现、没有路由（README 与 docs/api.md 却都写着能访问），
+	// 任何标准 OIDC 客户端拉 discovery 就直接 404，接入失败。
+	//
+	// 用 gin 原生注册而不是 meta.Meta：都是无请求体的 GET，
+	// 且 userinfo 依赖 AuthRequired 中间件放进 gin.Context 的用户身份。
+	engine := server.Engine()
+	engine.GET("/.well-known/openid-configuration", authcontroller.DiscoveryHandler)
+	engine.GET("/auth/jwks", authcontroller.JWKSHandler)
+	engine.GET("/auth/userinfo", authcontroller.UserInfoHandler)
+
 	return nil
 }

@@ -4,6 +4,37 @@
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.2] - 2026-10-25
+
+### 新增
+
+- **`GET /.well-known/openid-configuration`（OIDC Discovery）**。
+  README 早就写着这个地址能用，代码里根本没有这条路由 —— 标准 OIDC 客户端
+  （Grafana / GitLab / ArgoCD / Keycloak 联邦）接入的第一步就是拉它，404 即失败。
+  现在如实声明 issuer、authorization/token/userinfo/jwks/introspect/revocation
+  各端点与支持的 scope、grant_type。
+- **`GET /auth/jwks`（jwks_uri）**。`GetJWKS` 服务方法一直存在、公钥也一直在生成，
+  但同样没有注册路由，等于验证签名的一侧永远拿不到公钥。现可匿名访问。
+- **`GET /auth/userinfo`**。docs/api.md 里写了接口，实现缺失。现在按令牌里的
+  用户取档案，返回标准扁平 JSON：`sub`（十进制 userID）、`preferred_username`、
+  `name`、`email`、`phone_number`、`picture`。
+  账号字段来自 LandcUserManager（本地进程内或远端 HTTP，取决于 `user_manager.mode`），
+  SSO 不重复存一份用户档案。
+
+### 说明
+
+- 三个端点都返回**扁平 JSON**，不走 `{code,message,data}` 统一信封 ——
+  标准客户端按 OIDC 规范解析，多套一层就解析失败。回归测试里显式断言了这一点。
+- Discovery 与 JWKS 加入免鉴权白名单：客户端在拿到任何凭据之前就要拉它们。
+- **能力边界已写入 README**：本服务签发 access_token / refresh_token，
+  **不签发 id_token**，属于「OAuth2 授权服务器 + OIDC 的 userinfo/jwks 子集」。
+  Discovery 的 `response_types_supported` 只有 `code`，不夸大能力。
+
+### 依赖
+
+- `LandcUserManager` 升级到 `v0.1.5`（`GetUserInfo` 支持按 user_id 查询，
+  userinfo 需要按令牌主体反查档案）。
+
 ## [0.2.1] - 2026-10-25
 
 ### 变更
