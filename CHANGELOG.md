@@ -4,6 +4,22 @@
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，版本号遵循
 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.2.1] - 2026-10-25
+
+### 变更
+
+- 依赖升级到 `landc-go/frame v0.8.6`（`api v0.5.1`、`tools v0.7.1`）与
+  `LandcUserManager v0.1.3`。框架侧修复了两处会让问题「看不见」的缺陷：
+  - **HTTP 状态码被日志中间件吞成 200**：`/auth/*` 的参数校验失败、令牌无效
+    在网关、APM、按状态码分支的客户端眼里全都是「成功」，只有 body 里的
+    `code` 是错的。
+  - **`other:` 段配置从未生效**：`other.*` 下的自定义配置解析后多套了一层，
+    `GetOther` 恒取空。
+- CI 改为在同一 job 内先 `CGO_ENABLED=0 go test`（对齐静态产物），
+  再 `CGO_ENABLED=1 go test -race`（race 检测依赖 cgo）。
+
+本版本无业务代码变更。
+
 ## [0.2.0] - 2026-10-25
 
 ### 新增

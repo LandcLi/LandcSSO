@@ -39,10 +39,22 @@ jobs:
         run: go mod download
 
       - name: Build
+        env:
+          CGO_ENABLED: "0"
         run: go build -v ./...
 
+      # 显式 CGO_ENABLED=0：发布二进制与生产镜像都是纯静态无 CGO 的，
+      # 测试必须跑在同一约束下，否则代码悄悄依赖 cgo 时测试仍会绿。
       - name: Run tests
-        run: go test -v -race -count=1 -coverprofile=coverage.out ./...
+        env:
+          CGO_ENABLED: "0"
+        run: go test -v -count=1 -coverprofile=coverage.out ./...
+
+      # -race 需要 CGO，与上面的 CGO off 运行互补：一个对齐产物，一个抓并发缺陷。
+      - name: Run tests with race detector
+        env:
+          CGO_ENABLED: "1"
+        run: go test -race -count=1 ./...
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
