@@ -17,9 +17,9 @@ import (
 type sessionServiceImpl struct {
 	redisClient redis.UniversalClient
 	// In-memory fallback when Redis is not available
-	memStore   map[string][]byte
-	memMu      sync.RWMutex
-	useMemory  bool
+	memStore  map[string][]byte
+	memMu     sync.RWMutex
+	useMemory bool
 }
 
 func NewSessionServiceImpl() *sessionServiceImpl {

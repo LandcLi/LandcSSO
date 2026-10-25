@@ -3,7 +3,7 @@ package v1
 import "github.com/LandcLi/landc-go/frame/pkg/meta"
 
 type TokenRequest struct {
-	meta.Meta     `path:"/auth/token" method:"POST"`
+	meta.Meta    `path:"/auth/token" method:"POST"`
 	GrantType    string `json:"grant_type" binding:"required"`
 	Code         string `json:"code"`
 	ClientID     string `json:"client_id"`

@@ -50,8 +50,8 @@ type UserManagerConfig struct {
 type SeedConfig struct {
 	// Enabled 为 true 且 clients 表中不存在该 client_id 时，自动创建一个示例客户端，
 	// 便于新环境立刻走通授权码 / 客户端凭证流程。
-	Enabled    bool     `yaml:"enabled"`
-	ClientID   string   `yaml:"clientId"`
+	Enabled      bool   `yaml:"enabled"`
+	ClientID     string `yaml:"clientId"`
 	ClientSecret string `yaml:"clientSecret"`
 	// RedirectURIs 示例客户端允许的回调地址（精确匹配）
 	RedirectURIs []string `yaml:"redirectUris"`

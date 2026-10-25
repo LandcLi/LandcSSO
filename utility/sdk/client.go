@@ -288,14 +288,14 @@ func (c *Client) BiometricLogin(req *BiometricLoginRequest) (*TokenResponse, err
 
 // GetWechatAuthURL 获取微信授权链接
 func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, error) {
-	
+
 	// 构建请求URL
 	params := url.Values{}
 	params.Add("redirect_uri", redirectURI)
 	params.Add("state", state)
-	
+
 	authURL := fmt.Sprintf("%s/user/third-party-login/wechat/auth-url?%s", c.config.Issuer, params.Encode())
-	
+
 	// 发送请求
 	resp, err := http.Get(authURL)
 	if err != nil {
@@ -303,13 +303,13 @@ func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, err
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
 		facade.Errorf("获取微信授权链接失败，状态码: %d", resp.StatusCode)
 		return "", errors.New("获取微信授权链接失败")
 	}
-	
+
 	// 解析响应
 	var result struct {
 		Code    int    `json:"code"`
@@ -319,18 +319,18 @@ func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, err
 			State   string `json:"state"`
 		} `json:"data"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		facade.Errorf("解析微信授权链接响应失败: %v", err)
 		return "", err
 	}
-	
+
 	return result.Data.AuthURL, nil
 }
 
 // GetGitHubAuthURL 获取GitHub授权链接
 func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string, codeChallenge string, codeChallengeMethod string) (string, error) {
-	
+
 	// 构建请求URL
 	params := url.Values{}
 	params.Add("redirect_uri", redirectURI)
@@ -338,9 +338,9 @@ func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string
 	params.Add("scope", scope)
 	params.Add("code_challenge", codeChallenge)
 	params.Add("code_challenge_method", codeChallengeMethod)
-	
+
 	authURL := fmt.Sprintf("%s/user/third-party-login/github/auth-url?%s", c.config.Issuer, params.Encode())
-	
+
 	// 发送请求
 	resp, err := http.Get(authURL)
 	if err != nil {
@@ -348,13 +348,13 @@ func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
 		facade.Errorf("获取GitHub授权链接失败，状态码: %d", resp.StatusCode)
 		return "", errors.New("获取GitHub授权链接失败")
 	}
-	
+
 	// 解析响应
 	var result struct {
 		Code    int    `json:"code"`
@@ -364,25 +364,25 @@ func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string
 			State   string `json:"state"`
 		} `json:"data"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		facade.Errorf("解析GitHub授权链接响应失败: %v", err)
 		return "", err
 	}
-	
+
 	return result.Data.AuthURL, nil
 }
 
 // GetAlipayAuthURL 获取支付宝授权链接
 func (c *Client) GetAlipayAuthURL(redirectURI string, state string) (string, error) {
-	
+
 	// 构建请求URL
 	params := url.Values{}
 	params.Add("redirect_uri", redirectURI)
 	params.Add("state", state)
-	
+
 	authURL := fmt.Sprintf("%s/user/third-party-login/alipay/auth-url?%s", c.config.Issuer, params.Encode())
-	
+
 	// 发送请求
 	resp, err := http.Get(authURL)
 	if err != nil {
@@ -390,13 +390,13 @@ func (c *Client) GetAlipayAuthURL(redirectURI string, state string) (string, err
 		return "", err
 	}
 	defer resp.Body.Close()
-	
+
 	// 检查响应状态
 	if resp.StatusCode != http.StatusOK {
 		facade.Errorf("获取支付宝授权链接失败，状态码: %d", resp.StatusCode)
 		return "", errors.New("获取支付宝授权链接失败")
 	}
-	
+
 	// 解析响应
 	var result struct {
 		Code    int    `json:"code"`
@@ -406,12 +406,12 @@ func (c *Client) GetAlipayAuthURL(redirectURI string, state string) (string, err
 			State   string `json:"state"`
 		} `json:"data"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		facade.Errorf("解析支付宝授权链接响应失败: %v", err)
 		return "", err
 	}
-	
+
 	return result.Data.AuthURL, nil
 }
 

@@ -24,9 +24,9 @@ import (
 
 // options 为装配配置。
 type options struct {
-	authEnabled    bool
-	rateLimit      bool
-	configPath     string
+	authEnabled     bool
+	rateLimit       bool
+	configPath      string
 	userManagerMode string
 	userManagerURL  string
 

@@ -71,8 +71,8 @@ func (s *authServiceImpl) generateAccessToken(userID uint, clientID string, ip s
 func (s *authServiceImpl) generateRefreshToken(userID uint, clientID string) (string, int, error) {
 	expiresIn := s.cfg().JWT.RefreshTokenExpiry
 	token, err := frameauth.GenerateTokenWithOpts(userID, "", frameauth.GenerateTokenOption{
-		ClientID:  clientID,
-		TokenType: "refresh",
+		ClientID:   clientID,
+		TokenType:  "refresh",
 		ExpireTime: time.Duration(expiresIn) * time.Second,
 	})
 	if err != nil {

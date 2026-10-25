@@ -3,7 +3,7 @@ package v1
 import "github.com/LandcLi/landc-go/frame/pkg/meta"
 
 type ClientCreateRequest struct {
-	meta.Meta                `path:"/client/create" method:"POST"`
+	meta.Meta               `path:"/client/create" method:"POST"`
 	Name                    string   `json:"name" binding:"required"`
 	RedirectURIs            []string `json:"redirect_uris" binding:"required"`
 	Scope                   string   `json:"scope"`

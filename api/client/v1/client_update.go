@@ -3,7 +3,7 @@ package v1
 import "github.com/LandcLi/landc-go/frame/pkg/meta"
 
 type ClientUpdateRequest struct {
-	meta.Meta                `path:"/client/update" method:"PUT"`
+	meta.Meta               `path:"/client/update" method:"PUT"`
 	ID                      uint     `json:"id" binding:"required"`
 	Name                    string   `json:"name"`
 	RedirectURIs            []string `json:"redirect_uris"`

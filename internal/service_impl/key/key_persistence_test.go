@@ -24,7 +24,9 @@ func TestKeyPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GenerateKey() 失败: %v", err)
 	}
-	s.mu.Lock(); s.saveKeyToFilesLocked(k); s.mu.Unlock()
+	s.mu.Lock()
+	s.saveKeyToFilesLocked(k)
+	s.mu.Unlock()
 
 	// 验证文件已创建
 	if _, err := os.Stat(privPath); err != nil {

@@ -8,8 +8,8 @@ import (
 
 type ClientListRequest struct {
 	meta.Meta `path:"/client/list" method:"GET"`
-	Page     int `json:"page" form:"page" binding:"min=1"`
-	PageSize int `json:"page_size" form:"page_size" binding:"min=1,max=100"`
+	Page      int `json:"page" form:"page" binding:"min=1"`
+	PageSize  int `json:"page_size" form:"page_size" binding:"min=1,max=100"`
 }
 
 type ClientListResponse struct {
