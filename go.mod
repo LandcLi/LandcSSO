@@ -5,7 +5,7 @@ go 1.26.0
 toolchain go1.26.5
 
 require (
-	github.com/LandcLi/LandcUserManager v0.1.5
+	github.com/LandcLi/LandcUserManager v0.1.7
 	github.com/LandcLi/landc-go/api v0.5.1
 	github.com/LandcLi/landc-go/frame v0.8.6
 	github.com/LandcLi/landc-go/log v0.5.0

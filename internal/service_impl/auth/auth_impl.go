@@ -51,9 +51,9 @@ func (s *authServiceImpl) cfg() *config.Config {
 }
 
 // generateAccessToken 生成访问令牌（expiresIn 秒）
-func (s *authServiceImpl) generateAccessToken(userID uint, clientID string, ip string, deviceFingerprint string) (string, int, error) {
+func (s *authServiceImpl) generateAccessToken(userID uint, username string, clientID string, ip string, deviceFingerprint string) (string, int, error) {
 	expiresIn := s.cfg().JWT.AccessTokenExpiry
-	token, err := frameauth.GenerateTokenWithOpts(userID, "", frameauth.GenerateTokenOption{
+	token, err := frameauth.GenerateTokenWithOpts(userID, username, frameauth.GenerateTokenOption{
 		ClientID:          clientID,
 		Scope:             "openid profile email",
 		IP:                ip,
@@ -68,9 +68,9 @@ func (s *authServiceImpl) generateAccessToken(userID uint, clientID string, ip s
 }
 
 // generateRefreshToken 生成刷新令牌
-func (s *authServiceImpl) generateRefreshToken(userID uint, clientID string) (string, int, error) {
+func (s *authServiceImpl) generateRefreshToken(userID uint, username string, clientID string) (string, int, error) {
 	expiresIn := s.cfg().JWT.RefreshTokenExpiry
-	token, err := frameauth.GenerateTokenWithOpts(userID, "", frameauth.GenerateTokenOption{
+	token, err := frameauth.GenerateTokenWithOpts(userID, username, frameauth.GenerateTokenOption{
 		ClientID:   clientID,
 		TokenType:  "refresh",
 		ExpireTime: time.Duration(expiresIn) * time.Second,
@@ -82,8 +82,8 @@ func (s *authServiceImpl) generateRefreshToken(userID uint, clientID string) (st
 }
 
 // generateTempToken 生成临时token
-func (s *authServiceImpl) generateTempToken(ctx context.Context, userID uint, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
-	tokenString, err := frameauth.GenerateTokenWithOpts(userID, "", frameauth.GenerateTokenOption{
+func (s *authServiceImpl) generateTempToken(ctx context.Context, userID uint, username string, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
+	tokenString, err := frameauth.GenerateTokenWithOpts(userID, username, frameauth.GenerateTokenOption{
 		Scope:             "temp",
 		IP:                ip,
 		DeviceFingerprint: deviceFingerprint,
@@ -100,6 +100,7 @@ func (s *authServiceImpl) generateTempToken(ctx context.Context, userID uint, ip
 		tempTokenKey := fmt.Sprintf("temp_token:%s", tokenString)
 		tempTokenData := map[string]interface{}{
 			"user_id":            userID,
+			"username":           username,
 			"ip":                 ip,
 			"device_fingerprint": deviceFingerprint,
 			"created_at":         time.Now().Unix(),
@@ -117,15 +118,15 @@ func (s *authServiceImpl) generateTempToken(ctx context.Context, userID uint, ip
 	}, nil
 }
 
-func (s *authServiceImpl) Login(ctx context.Context, userID uint, differentLocation bool, isNewDevice bool, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
+func (s *authServiceImpl) Login(ctx context.Context, userID uint, username string, differentLocation bool, isNewDevice bool, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error) {
 	if differentLocation || isNewDevice {
-		return s.generateTempToken(ctx, userID, ip, deviceFingerprint, userAgent)
+		return s.generateTempToken(ctx, userID, username, ip, deviceFingerprint, userAgent)
 	}
-	return s.generateTokens(ctx, userID, "", ip, deviceFingerprint)
+	return s.generateTokens(ctx, userID, username, "", ip, deviceFingerprint)
 }
 
 // generateTokens 生成令牌
-func (s *authServiceImpl) generateTokens(ctx context.Context, userID uint, clientID string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
+func (s *authServiceImpl) generateTokens(ctx context.Context, userID uint, username string, clientID string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
 	if s.cfg().JWT.MaxConcurrentSessions > 0 {
 		if err := s.checkConcurrentSessions(userID); err != nil {
 			return nil, err
@@ -133,13 +134,13 @@ func (s *authServiceImpl) generateTokens(ctx context.Context, userID uint, clien
 	}
 
 	// 生成访问令牌
-	accessToken, expiresIn, err := s.generateAccessToken(userID, clientID, ip, deviceFingerprint)
+	accessToken, expiresIn, err := s.generateAccessToken(userID, username, clientID, ip, deviceFingerprint)
 	if err != nil {
 		return nil, err
 	}
 
 	// 生成刷新令牌
-	refreshToken, refreshExpiresIn, err := s.generateRefreshToken(userID, clientID)
+	refreshToken, refreshExpiresIn, err := s.generateRefreshToken(userID, username, clientID)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +148,7 @@ func (s *authServiceImpl) generateTokens(ctx context.Context, userID uint, clien
 	// 保存令牌
 	token := &model.Token{
 		UserID:            userID,
+		Username:          username,
 		AccessToken:       accessToken,
 		RefreshToken:      refreshToken,
 		ExpiresAt:         time.Now().Add(time.Duration(expiresIn) * time.Second),
@@ -241,8 +243,9 @@ func (s *authServiceImpl) ExchangeTempToken(ctx context.Context, tempToken strin
 			var tempTokenData map[string]interface{}
 			if err := json.Unmarshal(tempTokenDataJSON, &tempTokenData); err == nil {
 				if userID, ok := tempTokenData["user_id"].(float64); ok {
+					username, _ := tempTokenData["username"].(string)
 					rc.Del(ctx, tempTokenKey)
-					return s.generateTokens(ctx, uint(userID), "", ip, deviceFingerprint)
+					return s.generateTokens(ctx, uint(userID), username, "", ip, deviceFingerprint)
 				}
 			}
 		}
@@ -254,7 +257,7 @@ func (s *authServiceImpl) ExchangeTempToken(ctx context.Context, tempToken strin
 		return nil, errors.New("临时令牌不存在或已过期")
 	}
 
-	return s.generateTokens(ctx, claims.UserID, "", ip, deviceFingerprint)
+	return s.generateTokens(ctx, claims.UserID, claims.Username, "", ip, deviceFingerprint)
 }
 
 func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string, clientID string, clientSecret string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
@@ -279,7 +282,7 @@ func (s *authServiceImpl) RefreshToken(ctx context.Context, refreshToken string,
 		return nil, errors.New("客户端与刷新令牌不匹配")
 	}
 
-	newTokens, err := s.generateTokens(ctx, token.UserID, token.ClientID, ip, deviceFingerprint)
+	newTokens, err := s.generateTokens(ctx, token.UserID, token.Username, token.ClientID, ip, deviceFingerprint)
 	if err != nil {
 		return nil, err
 	}
@@ -311,8 +314,10 @@ func (s *authServiceImpl) verifyClient(clientID, clientSecret string) error {
 	return nil
 }
 
+// GenerateTokens 为服务端流程签发令牌（如 client_credentials）。
+// 这类调用没有登录用户，username 留空。
 func (s *authServiceImpl) GenerateTokens(ctx context.Context, userID uint, clientID string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
-	return s.generateTokens(ctx, userID, clientID, ip, deviceFingerprint)
+	return s.generateTokens(ctx, userID, "", clientID, ip, deviceFingerprint)
 }
 
 func (s *authServiceImpl) RevokeToken(ctx context.Context, tokenString string) error {

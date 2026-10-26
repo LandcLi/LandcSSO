@@ -17,8 +17,17 @@ type Token struct {
 	Revoked           bool      `json:"revoked" gorm:"default:false"`
 	IP                string    `json:"ip" gorm:"size:50"`
 	DeviceFingerprint string    `json:"device_fingerprint" gorm:"size:255"`
-	CreatedAt         time.Time `json:"created_at"`
-	UpdatedAt         time.Time `json:"updated_at"`
+
+	// Username 用户名，签发时写入令牌 claims，刷新时据此保持新令牌与原令牌一致。
+	//
+	// 存一份是为了让 RefreshToken 不必反查 LUM：刷新是高频路径，为拿一个用户名
+	// 多一次 HTTP 调用不划算；而令牌里的 username 一旦在刷新时丢失，下游按用户名
+	// 做的判断会出现「同一个用户前后两个令牌不一致」的诡异行为。
+	// 历史数据该列为空（迁移前签发），刷新后仍为空，用户重新登录即恢复。
+	Username string `json:"username" gorm:"size:100"`
+
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 // TableName 指定表名

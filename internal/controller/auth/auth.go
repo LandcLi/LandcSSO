@@ -125,7 +125,7 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 		}
 
 		// 调用认证服务登录
-		tokenResp, err := service.GetAuthService().Login(ctx, resp.UserID, resp.DifferentLocation, resp.IsNewDevice, ip, deviceFingerprint, userAgent)
+		tokenResp, err := service.GetAuthService().Login(ctx, resp.UserID, resp.Username, resp.DifferentLocation, resp.IsNewDevice, ip, deviceFingerprint, userAgent)
 		if err != nil {
 			return nil, err
 		}
@@ -161,7 +161,7 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 	}
 
 	// 调用认证服务登录
-	tokenResp, err := service.GetAuthService().Login(ctx, resp.UserID, resp.DifferentLocation, resp.IsNewDevice, ip, deviceFingerprint, userAgent)
+	tokenResp, err := service.GetAuthService().Login(ctx, resp.UserID, resp.Username, resp.DifferentLocation, resp.IsNewDevice, ip, deviceFingerprint, userAgent)
 	if err != nil {
 		return nil, err
 	}

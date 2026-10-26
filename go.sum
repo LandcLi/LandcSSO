@@ -1,7 +1,7 @@
 filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
 filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
-github.com/LandcLi/LandcUserManager v0.1.5 h1:MUS+sSHNwJv+jh96y/fQPlHEyDExOW8MbUCPqUuncEc=
-github.com/LandcLi/LandcUserManager v0.1.5/go.mod h1:m2z5so1MHKcKhGrvcdENliXMOGPeR0vYX24oUOdqe4Q=
+github.com/LandcLi/LandcUserManager v0.1.7 h1:gDZYhA2na4szw46co8fQiHN28gXXI0S9f9+uHqfDHtc=
+github.com/LandcLi/LandcUserManager v0.1.7/go.mod h1:uMvQvlutKomk/JVUVndfhaaVeZ0Db2FdWoMOgvQXyxQ=
 github.com/LandcLi/landc-go/api v0.5.1 h1:laIykCoBKBsf6/LqDjdQSi19hJJfLYCjCQcStYGorpM=
 github.com/LandcLi/landc-go/api v0.5.1/go.mod h1:svVovg5OgK3lbnwaB2TB8kv6ZbMEemF3xbK0ujbEnfQ=
 github.com/LandcLi/landc-go/frame v0.8.6 h1:IU5m5Uzm6PowctP7lYMya1BNveXEbJvp6VaELnzhu4g=

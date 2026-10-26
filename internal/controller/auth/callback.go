@@ -80,7 +80,7 @@ func ThirdPartyCallbackHandler(c *gin.Context) {
 	// 4. SSO 自行签发 token（与 /auth/login 的 PASSWORD/THIRD_PARTY 流程同口径），
 	//    确保返回的 token 可被 SSO 的 introspect / jwks / refresh-token 端点识别
 	tokenResp, err := service.GetAuthService().Login(c.Request.Context(),
-		loginResp.UserID, loginResp.DifferentLocation, loginResp.IsNewDevice,
+		loginResp.UserID, loginResp.Username, loginResp.DifferentLocation, loginResp.IsNewDevice,
 		c.ClientIP(), deviceFingerprint, c.GetHeader("User-Agent"))
 	if err != nil {
 		facade.Errorf("第三方回调SSO签发token失败: provider=%s err=%v", provider, err)

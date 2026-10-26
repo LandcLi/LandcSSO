@@ -17,7 +17,9 @@ func GetAuthService() authService {
 }
 
 type authService interface {
-	Login(ctx context.Context, userID uint, differentLocation bool, isNewDevice bool, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error)
+	// Login 签发用户令牌。username 来自 LandcUserManager 的登录响应（用户档案在 LUM），
+	// 写进令牌 claims 供下游按用户名判断。
+	Login(ctx context.Context, userID uint, username string, differentLocation bool, isNewDevice bool, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error)
 	ExchangeTempToken(ctx context.Context, tempToken string, ip string, deviceFingerprint string, userAgent string) (*model.TokenResponse, error)
 	ValidateToken(ctx context.Context, tokenString string, ip string, deviceFingerprint string) (*model.Claims, error)
 	RefreshToken(ctx context.Context, refreshToken string, clientID string, clientSecret string, ip string, deviceFingerprint string) (*model.TokenResponse, error)
