@@ -1,3 +1,9 @@
+-- LandcSSO 建库脚本（全新建库用这个文件）
+--
+-- 从旧版本升级（库已存在、且 database.auto_migrate=false）：
+--   本脚本用的是 CREATE TABLE IF NOT EXISTS，对已存在的表不会补列。
+--   请按顺序执行 sqls/migrations/ 下的增量脚本。
+--
 -- 请先创建数据库，并按实际环境修改数据库名
 CREATE DATABASE IF NOT EXISTS `sso_db` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `sso_db`;
@@ -12,6 +18,7 @@ CREATE TABLE IF NOT EXISTS `tokens` (
   `refresh_expires_at` datetime NOT NULL COMMENT '刷新令牌过期时间',
   `client_id` varchar(100) DEFAULT NULL COMMENT '客户端ID',
   `scope` varchar(255) DEFAULT NULL COMMENT '权限范围',
+  `username` varchar(100) DEFAULT NULL COMMENT '用户名（签发时写入令牌 claims，刷新时沿用）',
   `revoked` tinyint(1) DEFAULT '0' COMMENT '是否已撤销：1-是，0-否',
   `ip` varchar(50) DEFAULT NULL COMMENT 'IP地址',
   `device_fingerprint` varchar(255) DEFAULT NULL COMMENT '设备指纹',
