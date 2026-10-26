@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/LandcLi/landc-go/frame/pkg/di"
 	"github.com/LandcLi/landc-go/frame/pkg/web"
 	"github.com/LandcLi/landc-go/tools/ratelimit"
 	"github.com/gin-gonic/gin"
@@ -109,7 +110,7 @@ func RegisterToRouter(s *web.Server, opts ...Option) error {
 	if o.userManagerURL != "" {
 		baseURL = o.userManagerURL
 	}
-	if err := wireUserManager(mode, baseURL); err != nil {
+	if err := wireUserManager(mode, baseURL, cfg.UserManager.ServiceKey); err != nil {
 		return err
 	}
 
@@ -140,7 +141,7 @@ func RegisterToRouter(s *web.Server, opts ...Option) error {
 // wireUserManager 按模式装配用户中心：
 //   - local：进程内注册 LUM 实现，SSO 通过 UserGateway 直接调用，无 HTTP 跳转；
 //   - remote：注册 HTTP 代理，SSO 通过 UserGateway 调用远端 LUM。
-func wireUserManager(mode, baseURL string) error {
+func wireUserManager(mode, baseURL, serviceKey string) error {
 	switch mode {
 	case "", config.UserManagerModeLocal:
 		// 只装实现、不挂 LUM 的路由与中间件，避免污染 SSO 的 URL 空间与中间件链
@@ -152,13 +153,24 @@ func wireUserManager(mode, baseURL string) error {
 		if baseURL == "" {
 			return fmt.Errorf("serverlib: user_manager.baseUrl is required in remote mode")
 		}
-		userapi.UserGateway.ProvideRemote(baseURL)
+		// LUM 已启用鉴权。SSO 的 OIDC /userinfo 需要按 user_id 反查档案，
+		// 那是服务间调用、没有用户 token，必须带共享密钥放行。
+		var opts []di.RemoteOption
+		if serviceKey != "" {
+			opts = append(opts, di.WithHeaders(map[string]string{
+				ServiceKeyHeader: serviceKey,
+			}))
+		}
+		userapi.UserGateway.ProvideRemote(baseURL, opts...)
 		return nil
 	default:
 		return fmt.Errorf("serverlib: unknown user_manager.mode %q (want %q or %q)",
 			mode, config.UserManagerModeLocal, config.UserManagerModeRemote)
 	}
 }
+
+// ServiceKeyHeader 是发给 LandcUserManager 的服务间凭证头，与 LUM 中间件读取的头名一致。
+const ServiceKeyHeader = "X-Service-Key"
 
 // loginRateLimitMiddleware 对登录与令牌端点限流，其余路径直接放行。
 func loginRateLimitMiddleware(limiter *ratelimit.TokenBucket) gin.HandlerFunc {

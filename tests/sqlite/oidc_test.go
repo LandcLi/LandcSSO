@@ -64,9 +64,24 @@ func TestOIDCDiscoveryEndpoint(t *testing.T) {
 		}
 	}
 
-	// issuer 与配置一致
-	if got := doc["issuer"]; got != "landc-sso-test" {
-		t.Errorf("issuer = %v, want landc-sso-test", got)
+	// issuer 与配置一致，且必须是绝对 URL（OIDC 规范硬要求）。
+	// 写成裸名字（如 "sso-server"）时端点会退化成相对路径，
+	// Grafana / GitLab / ArgoCD 等标准客户端拉完 discovery 直接接入失败。
+	issuer, _ := doc["issuer"].(string)
+	if issuer != "https://sso.test.local" {
+		t.Errorf("issuer = %v, want https://sso.test.local", doc["issuer"])
+	}
+	if !strings.Contains(issuer, "://") {
+		t.Errorf("issuer 必须是绝对 URL，实际 %q", issuer)
+	}
+	// 所有 *_endpoint / jwks_uri 也必须是绝对 URL
+	for _, key := range []string{
+		"authorization_endpoint", "token_endpoint", "userinfo_endpoint",
+		"jwks_uri", "introspection_endpoint", "revocation_endpoint",
+	} {
+		if v, ok := doc[key].(string); ok && !strings.HasPrefix(v, "http") {
+			t.Errorf("%s 不是绝对 URL: %q", key, v)
+		}
 	}
 
 	// 声明的端点必须真的存在（否则客户端拿到一个 404 地址）。

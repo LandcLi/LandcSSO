@@ -7,6 +7,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/LandcLi/landc-go/log/facade"
+
 	userapi "github.com/LandcLi/LandcUserManager/api/user"
 	userv1api "github.com/LandcLi/LandcUserManager/api/user/v1"
 
@@ -39,9 +41,18 @@ func DiscoveryHandler(c *gin.Context) {
 	}
 
 	issuer := strings.TrimRight(cfg.JWT.Issuer, "/")
-	if issuer == "" {
-		// 没配 issuer 时退回请求本身的来源，避免返回一个空 issuer 让客户端没法用。
-		issuer = requestBaseURL(c)
+	if !isAbsoluteURL(issuer) {
+		// OIDC 规范要求 issuer 是绝对 URL，且必须等于 ID Token 的 iss。
+		// 配置里写 "sso-server" 这类裸名字时，拼出来的 authorization_endpoint
+		// 会变成 "sso-server/auth/authorize" 这种相对路径 —— 标准客户端
+		// （Grafana / GitLab / ArgoCD / Keycloak 联邦）拉完 discovery 直接失败。
+		// 这里用请求来源兜底保证端点可用，同时告警提示改配置（改完后 JWT 的
+		// iss claim 也会跟着变成 URL，两者自动一致）。
+		fallback := requestBaseURL(c)
+		facade.Warnf("jwt.issuer %q 不是绝对 URL，OIDC discovery 已改用请求来源 %q；"+
+			"请把配置里的 jwt.issuer 改为绝对 URL（如 http://localhost:8080）以与令牌 iss 保持一致",
+			issuer, fallback)
+		issuer = fallback
 	}
 
 	doc := gin.H{
@@ -77,6 +88,16 @@ func DiscoveryHandler(c *gin.Context) {
 // JWKSHandler 返回签名公钥集合（jwks_uri）。
 // 必须匿名可访问：验证 ID Token 签名的客户端不会带我方令牌。
 func JWKSHandler(c *gin.Context) {
+	// 对称签名算法（HS256/HS384/HS512）用的是共享密钥，无法也不应公开公钥。
+	// 此前这里无条件返回 RSA 公钥，而默认配置是 HS256 —— discovery 声称 HS256、
+	// jwks 却给 RS256，会让按 jwks 判断算法的客户端做出错误假设。
+	// 按规范：对称算法返回空 keys 集合。
+	if alg := signingAlg(config.GetConfig()); strings.HasPrefix(strings.ToUpper(alg), "HS") {
+		c.Header("Cache-Control", "public, max-age=3600")
+		c.JSON(http.StatusOK, gin.H{"keys": []any{}})
+		return
+	}
+
 	svc := service.GetAuthService()
 	if svc == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "认证服务未初始化"})
@@ -91,6 +112,12 @@ func JWKSHandler(c *gin.Context) {
 
 	c.Header("Cache-Control", "public, max-age=3600")
 	c.JSON(http.StatusOK, resp)
+}
+
+// isAbsoluteURL 判断是否为带 scheme 的绝对 URL。
+func isAbsoluteURL(s string) bool {
+	i := strings.Index(s, "://")
+	return i > 0 && !strings.ContainsAny(s[:i], "/ ")
 }
 
 // UserInfoHandler 返回当前 access_token 对应的用户信息（OIDC /userinfo）。

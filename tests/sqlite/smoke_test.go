@@ -51,7 +51,7 @@ seed:
 jwt:
   signingMethod: "HS256"
   secret: "sqlite-smoke-test-secret-key-at-least-32-chars"
-  issuer: "landc-sso-test"
+  issuer: "https://sso.test.local"
   accessTokenExpiry: 1800
   refreshTokenExpiry: 86400
 log:

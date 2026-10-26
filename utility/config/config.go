@@ -47,6 +47,13 @@ type UserManagerConfig struct {
 	Mode string `yaml:"mode"`
 	// BaseURL 仅在 remote 模式使用，例如 http://127.0.0.1:18081
 	BaseURL string `yaml:"baseUrl"`
+	// ServiceKey 服务间调用凭证，remote 模式下随请求以 X-Service-Key 头发给 LUM。
+	//
+	// 用途：OIDC /userinfo 要按令牌里的 sub 读取用户档案，这是服务间调用，
+	// 手上没有「当前登录用户」的 token，走用户 JWT 无处可带。LUM 已启用鉴权，
+	// 必须靠这个共享密钥放行。必须与 LUM 的 service_auth.key 完全一致；
+	// 留空则不带该头，/auth/userinfo 会因 LUM 返回 401 而报 502。
+	ServiceKey string `yaml:"serviceKey"`
 }
 
 // SeedConfig 首次启动的种子数据。生产环境请关闭。

@@ -43,6 +43,12 @@ user_manager:
   # remote: 调用独立部署的 LUM
   mode: "local"
   baseUrl: "http://127.0.0.1:18081"
+  # 服务间调用凭证（remote 模式用）
+  #
+  # OIDC /userinfo 要按令牌里的 sub 读取用户档案，那是服务间调用，没有用户 token。
+  # LUM 已启用鉴权，必须配共享密钥放行，否则 /auth/userinfo 会因 LUM 返回 401 而报 502。
+  # 该值必须与 LUM 的 service_auth.key 完全一致；留空则不带该头（userinfo 不可用）。
+  serviceKey: ""
 
 # 首次启动种子数据（生产请关闭）
 seed:
@@ -67,7 +73,11 @@ jwt:
   # 使用 RS256 时填写（JWKS 端点会导出公钥）
   privateKeyPath: "./keys/private.pem"
   publicKeyPath: "./keys/public.pem"
-  issuer: "sso-server"
+  # issuer 必须是**绝对 URL**（OIDC 规范要求），且会原样写入 ID Token 的 iss claim。
+  # 写成 "sso-server" 这类裸名字时，OIDC discovery 会退化成相对路径
+  # （authorization_endpoint = "sso-server/auth/authorize"），
+  # Grafana / GitLab / ArgoCD 等标准客户端拉完 discovery 直接接入失败。
+  issuer: "http://localhost:8080"
   accessTokenExpiry: 1800
   refreshTokenExpiry: 86400
   maxConcurrentSessions: 5
