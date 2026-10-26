@@ -207,8 +207,12 @@ func (r *tokenDaoImpl) MarkAsUsed(id uint) error {
 	return r.getDB().Model(&model.AuthorizationCode{}).Where("id = ?", id).Update("used", true).Error
 }
 
+// DeleteExpiredCodes 删除已过期的授权码。
+// 用参数传入当前时间而不是 SQL 的 NOW()：NOW() 是 MySQL 专有函数，
+// SQLite 下会直接报 "no such function: NOW"（清理任务每次执行都失败，
+// 过期授权码永远不被删除，表无限增长）。
 func (r *tokenDaoImpl) DeleteExpiredCodes() error {
-	return r.getDB().Where("expires_at < NOW()").Delete(&model.AuthorizationCode{}).Error
+	return r.getDB().Where("expires_at < ?", time.Now()).Delete(&model.AuthorizationCode{}).Error
 }
 
 // DeleteExpiredTokens 物理删除已无用的令牌记录。
