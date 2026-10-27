@@ -10,12 +10,10 @@ import (
 	"github.com/LandcLi/LandcSSO/dao"
 	"github.com/LandcLi/LandcSSO/model"
 	"github.com/LandcLi/LandcSSO/service"
-	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/LandcLi/landc-go/log/facade"
 )
 
 type monitorServiceImpl struct {
-	config            *config.Config
 	authSuccessCount  int64
 	authFailureCount  int64
 	tokenIssuedCount  int64
@@ -76,8 +74,7 @@ func (s *monitorServiceImpl) RecordAuthEvent(ctx context.Context, success bool, 
 		eventType = "auth_failure"
 		status = "failure"
 	}
-	service.GetAuditService().LogEvent(eventType, userID, "", ip, "", fmt.Sprintf("用户 %d 认证%s", userID, map[bool]string{true: "成功", false: "失败"}[success]), status)
-
+	logAudit(eventType, userID, ip, fmt.Sprintf("用户 %d 认证%s", userID, map[bool]string{true: "成功", false: "失败"}[success]), status)
 }
 
 func (s *monitorServiceImpl) RecordTokenEvent(ctx context.Context, eventType string, userID uint, clientID string, ip string) {
@@ -92,8 +89,7 @@ func (s *monitorServiceImpl) RecordTokenEvent(ctx context.Context, eventType str
 		s.recordTokenMetrics(ctx)
 	}
 
-	service.GetAuditService().LogEvent(fmt.Sprintf("token_%s", eventType), userID, "", ip, "", fmt.Sprintf("用户 %d 令牌%s", userID, map[string]string{"issued": "颁发", "revoked": "撤销"}[eventType]), "success")
-
+	logAudit(fmt.Sprintf("token_%s", eventType), userID, ip, fmt.Sprintf("用户 %d 令牌%s", userID, map[string]string{"issued": "颁发", "revoked": "撤销"}[eventType]), "success")
 }
 
 func (s *monitorServiceImpl) DetectAnomaly(ctx context.Context, eventType string, userID uint, ip string, deviceFingerprint string, details map[string]interface{}) (bool, string) {
@@ -110,7 +106,9 @@ func (s *monitorServiceImpl) DetectAnomaly(ctx context.Context, eventType string
 }
 
 func (s *monitorServiceImpl) GetSystemStatus(ctx context.Context) (map[string]interface{}, error) {
-	s.CollectSystemMetrics(ctx)
+	// 指标采集失败不影响状态查询：后续读取的是上一次采集的结果，
+	// 报错给调用方反而会让监控页整页不可用。
+	_ = s.CollectSystemMetrics(ctx)
 
 	endTime := time.Now()
 	startTime := endTime.Add(-5 * time.Minute)
@@ -245,6 +243,15 @@ func (s *monitorServiceImpl) createAnomalyEvent(ctx context.Context, eventType, 
 		facade.Errorf("创建异常事件失败: %v", err)
 	}
 
-	service.GetAuditService().LogEvent("security_anomaly", userID, "", ip, "", description, "warning")
+	logAudit("security_anomaly", userID, ip, description, "warning")
+}
 
+// logAudit 写审计事件，失败只记日志。
+//
+// 审计是旁路：登录/令牌操作的主流程不能因为审计库抖动而失败，
+// 否则一次审计存储故障就会导致用户无法登录。
+func logAudit(eventType string, userID uint, ip, detail, status string) {
+	if err := service.GetAuditService().LogEvent(eventType, userID, "", ip, "", detail, status); err != nil {
+		facade.Warnf("写审计事件失败（%s）: %v", eventType, err)
+	}
 }

@@ -408,7 +408,11 @@ func (s *authServiceImpl) notifyClients(userID uint) error {
 
 		var redirectURIs []string
 		if client.RedirectURIs != "" {
-			json.Unmarshal([]byte(client.RedirectURIs), &redirectURIs)
+			if err := json.Unmarshal([]byte(client.RedirectURIs), &redirectURIs); err != nil {
+				// 脏数据：跳过该客户端的登出通知，但要留痕，否则表现为
+				// 「登出后某些客户端没被通知」却查不出原因
+				facade.Warnf("client %s 的 redirect_uris 解析失败，跳过其登出通知: %v", clientID, err)
+			}
 		}
 
 		for _, redirectURI := range redirectURIs {

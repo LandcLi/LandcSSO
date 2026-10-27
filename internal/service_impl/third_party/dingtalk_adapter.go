@@ -44,7 +44,10 @@ func (d *dingtalkAdapter) FetchAccessTokenAndRefreshToken(ctx context.Context, c
 	fetchURL := "https://api.dingtalk.com/v1.0/oauth2/userAccessToken"
 
 	// 构建请求体
-	requestBody := fmt.Sprintf(`{"clientId":"%s","clientSecret":"%s","code":"%s","grantType":"authorization_code"}`,
+	//
+	// 用 %q 而不是 "%s"：AppSecret / code 里若出现引号或反斜杠，
+	// 手工拼进去的 JSON 会直接损坏（甚至可被构造成注入）。%q 会正确转义并自带引号。
+	requestBody := fmt.Sprintf(`{"clientId":%q,"clientSecret":%q,"code":%q,"grantType":"authorization_code"}`,
 		d.config.AppId, d.config.AppSecret, code)
 
 	// 发送POST请求

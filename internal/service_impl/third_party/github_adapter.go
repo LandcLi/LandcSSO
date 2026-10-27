@@ -37,15 +37,18 @@ func (g *githubAdapter) ValidateRedirectURI(ctx context.Context, redirectURI str
 		return errors.New("无效的redirect_uri")
 	}
 
-	// 协议校验：生产环境强制 HTTPS；仅允许本地开发使用 http 环回地址
-	if parsedURI.Scheme == "https" {
+	// 协议校验：生产环境强制 HTTPS；仅允许本地开发使用 http 环回地址。
+	// 用 switch 而不是 if-else 链：分支是「按 scheme 分类」，
+	// switch 更能表达意图，也避免 ifElseChain 这类可读性问题。
+	switch parsedURI.Scheme {
+	case "https":
 		// 允许
-	} else if parsedURI.Scheme == "http" {
+	case "http":
 		host := parsedURI.Hostname()
 		if host != "localhost" && host != "127.0.0.1" && host != "::1" {
 			return errors.New("redirect_uri必须使用HTTPS协议")
 		}
-	} else {
+	default:
 		return errors.New("redirect_uri必须使用https协议")
 	}
 

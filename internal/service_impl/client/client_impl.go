@@ -33,7 +33,6 @@ func init() {
 }
 
 func (s *clientServiceImpl) List(req *v1.ClientListRequest) (*v1.ClientListResponse, error) {
-
 	clients, total, err := dao.GetClientDao().List(req.Page, req.PageSize)
 	if err != nil {
 		facade.Errorf("获取客户端列表失败: %v", err)
@@ -54,7 +53,6 @@ func (s *clientServiceImpl) List(req *v1.ClientListRequest) (*v1.ClientListRespo
 }
 
 func (s *clientServiceImpl) Create(req *v1.ClientCreateRequest) (*v1.ClientResponse, error) {
-
 	clientID := GenerateClientID()
 	plainSecret := GenerateClientSecret()
 
@@ -107,7 +105,6 @@ func (s *clientServiceImpl) Create(req *v1.ClientCreateRequest) (*v1.ClientRespo
 }
 
 func (s *clientServiceImpl) Update(req *v1.ClientUpdateRequest) (*v1.ClientResponse, error) {
-
 	client, err := dao.GetClientDao().FindByID(req.ID)
 	if err != nil {
 		facade.Errorf("查找客户端失败: %v", err)
@@ -167,7 +164,6 @@ func (s *clientServiceImpl) Update(req *v1.ClientUpdateRequest) (*v1.ClientRespo
 }
 
 func (s *clientServiceImpl) Delete(req *v1.ClientDeleteRequest) error {
-
 	_, err := dao.GetClientDao().FindByID(req.ID)
 	if err != nil {
 		facade.Errorf("查找客户端失败: %v", err)
@@ -184,7 +180,6 @@ func (s *clientServiceImpl) Delete(req *v1.ClientDeleteRequest) error {
 }
 
 func (s *clientServiceImpl) GetByClientID(clientID string) (*model.Client, error) {
-
 	client, err := dao.GetClientDao().FindByClientID(clientID)
 	if err != nil {
 		facade.Errorf("查找客户端失败: %v", err)

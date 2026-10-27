@@ -1,9 +1,9 @@
 package middleware
 
 import (
-	"context"
 	"strings"
 
+	authApi "github.com/LandcLi/LandcSSO/api/auth"
 	"github.com/LandcLi/LandcSSO/service"
 	"github.com/gin-gonic/gin"
 )
@@ -78,13 +78,12 @@ func AuthRequired() gin.HandlerFunc {
 		c.Set("Scope", claims.Scope)
 		c.Set("ClientID", claims.ClientID)
 
-		// 同步写入 request context，供以 context.Context 为参数的 handler 读取
-		reqCtx := c.Request.Context()
-		reqCtx = context.WithValue(reqCtx, "UserID", claims.UserID)
-		reqCtx = context.WithValue(reqCtx, "Username", claims.Username)
-		reqCtx = context.WithValue(reqCtx, "Email", claims.Email)
-		reqCtx = context.WithValue(reqCtx, "Scope", claims.Scope)
-		reqCtx = context.WithValue(reqCtx, "ClientID", claims.ClientID)
+		// 同步写入 request context，供以 context.Context 为参数的 handler 读取。
+		//
+		// 只写 UserID：此前还写了 Username / Email / Scope / ClientID 四个键，
+		// 但全仓库没有任何读取方，属于只写不读的死代码。
+		// 键类型统一用 api/auth 的自定义类型，避免字符串键冲突（SA1029）。
+		reqCtx := authApi.WithUserID(c.Request.Context(), claims.UserID)
 		c.Request = c.Request.WithContext(reqCtx)
 
 		c.Next()

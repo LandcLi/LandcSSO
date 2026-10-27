@@ -1,13 +1,13 @@
 package middleware
 
 import (
-	"context"
 	"net/http"
 	"time"
 
 	apiMiddleware "github.com/LandcLi/landc-go/api/middleware/gin"
 	"github.com/LandcLi/landc-go/log/facade"
 
+	authApi "github.com/LandcLi/LandcSSO/api/auth"
 	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/gin-gonic/gin"
 )
@@ -21,15 +21,14 @@ func CtxEnricherMiddleware() gin.HandlerFunc {
 		deviceFingerprint := c.GetHeader("X-Device-Fingerprint")
 		userAgent := c.GetHeader("User-Agent")
 
+		// gin.Context 侧：供直接用 gin API 的 handler
 		c.Set("IP", ip)
 		c.Set("DeviceFingerprint", deviceFingerprint)
 		c.Set("UserAgent", userAgent)
 
-		ctx := c.Request.Context()
-		ctx = context.WithValue(ctx, "IP", ip)
-		ctx = context.WithValue(ctx, "DeviceFingerprint", deviceFingerprint)
-		ctx = context.WithValue(ctx, "UserAgent", userAgent)
-		c.Request = c.Request.WithContext(ctx)
+		// context.Context 侧：委托给 api/auth.RequestInfoEnricher，
+		// 保证键类型只有一个定义（自定义类型，避免 SA1029 的字符串键冲突）。
+		c.Request = c.Request.WithContext(authApi.RequestInfoEnricher(c.Request.Context(), c))
 
 		c.Next()
 	}

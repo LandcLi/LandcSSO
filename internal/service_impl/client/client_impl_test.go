@@ -16,7 +16,7 @@ func TestMain(m *testing.M) {
 	}
 	for _, dir := range dirs {
 		if _, err := os.Stat(dir + "/config.yaml"); err == nil {
-			os.Chdir(dir)
+			_ = os.Chdir(dir)
 			break
 		}
 	}

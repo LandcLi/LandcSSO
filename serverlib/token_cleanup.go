@@ -35,18 +35,11 @@ func startTokenCleanup(cfg config.TokenCleanupConfig) {
 	})
 }
 
-// stopTokenCleanup 停止后台清理任务（幂等）。测试与优雅停机用。
-func stopTokenCleanup() {
-	if cleanupStop == nil {
-		return
-	}
-	select {
-	case <-cleanupStop:
-		// 已停止
-	default:
-		close(cleanupStop)
-	}
-}
+// 说明：这里不提供 stopTokenCleanup。
+//
+// 清理任务是无状态的单条 SQL，进程退出时 goroutine 随之结束，被中断也不会
+// 留下不一致数据（下次启动会再跑一次）。此前写过一个 stopTokenCleanup 的
+// 停机钩子，但全仓库没有任何调用方 —— 属于只写不用的死代码，已移除。
 
 func cleanupLoop(interval time.Duration, stop chan struct{}) {
 	ticker := time.NewTicker(interval)

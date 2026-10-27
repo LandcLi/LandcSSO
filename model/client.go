@@ -5,6 +5,7 @@ import (
 	"time"
 
 	v1 "github.com/LandcLi/LandcSSO/api/client/v1"
+	"github.com/LandcLi/landc-go/log/facade"
 )
 
 // Client 客户端模型
@@ -30,22 +31,30 @@ func (Client) TableName() string {
 
 // ToResponse 转换为响应
 func (c *Client) ToResponse() *v1.ClientResponse {
-	// 解析RedirectURIs
+	// 三个字段在库里以 JSON 数组字符串存储。解析失败时按空列表返回，
+	// 但必须留痕 —— 静默吞掉会让「客户端登录后跳转异常」无从排查：
+	// 表现只是回调地址莫名其妙变空，DB 里却是脏数据。
 	var redirectURIs []string
 	if c.RedirectURIs != "" {
-		json.Unmarshal([]byte(c.RedirectURIs), &redirectURIs)
+		if err := json.Unmarshal([]byte(c.RedirectURIs), &redirectURIs); err != nil {
+			facade.Warnf("client %s 的 redirect_uris 解析失败，按空处理: %v", c.ClientID, err)
+		}
 	}
 
 	// 解析GrantTypes
 	var grantTypes []string
 	if c.GrantTypes != "" {
-		json.Unmarshal([]byte(c.GrantTypes), &grantTypes)
+		if err := json.Unmarshal([]byte(c.GrantTypes), &grantTypes); err != nil {
+			facade.Warnf("client %s 的 grant_types 解析失败，按空处理: %v", c.ClientID, err)
+		}
 	}
 
 	// 解析ResponseTypes
 	var responseTypes []string
 	if c.ResponseTypes != "" {
-		json.Unmarshal([]byte(c.ResponseTypes), &responseTypes)
+		if err := json.Unmarshal([]byte(c.ResponseTypes), &responseTypes); err != nil {
+			facade.Warnf("client %s 的 response_types 解析失败，按空处理: %v", c.ClientID, err)
+		}
 	}
 
 	return &v1.ClientResponse{

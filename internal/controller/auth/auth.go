@@ -73,11 +73,7 @@ func NewAuthController() *authController {
 
 // getUserIDFromContext 从 context 中提取已认证的用户ID，未认证时返回错误
 func getUserIDFromContext(ctx context.Context) (uint, error) {
-	ctxValue := ctx.Value("UserID")
-	if ctxValue == nil {
-		return 0, errors.New("未认证")
-	}
-	userID, ok := ctxValue.(uint)
+	userID, ok := authApi.UserIDFromContext(ctx)
 	if !ok {
 		return 0, errors.New("未认证")
 	}
@@ -85,9 +81,7 @@ func getUserIDFromContext(ctx context.Context) (uint, error) {
 }
 
 func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.TokenResponse, error) {
-	ip := ctx.Value("IP").(string)
-	deviceFingerprint := ctx.Value("DeviceFingerprint").(string)
-	userAgent := ctx.Value("UserAgent").(string)
+	ip, deviceFingerprint, userAgent := authApi.RequestInfo(ctx)
 
 	// 如果是第三方登录，需要根据verifyType获取对应的适配器，然后调用获取access_token、refresh_token的接口
 	if req.AuthType == "THIRD_PARTY" {
@@ -178,9 +172,7 @@ func (c *authController) Login(ctx context.Context, req *v1.LoginRequest) (*v1.T
 }
 
 func (c *authController) ExchangeTempToken(ctx context.Context, req *v1.ExchangeTempTokenRequest) (*v1.TokenResponse, error) {
-	ip := ctx.Value("IP").(string)
-	deviceFingerprint := ctx.Value("DeviceFingerprint").(string)
-	userAgent := ctx.Value("UserAgent").(string)
+	ip, deviceFingerprint, userAgent := authApi.RequestInfo(ctx)
 
 	// 调用认证服务兑换临时令牌
 	tokenResp, err := service.GetAuthService().ExchangeTempToken(ctx, req.TempToken, ip, deviceFingerprint, userAgent)
@@ -200,8 +192,7 @@ func (c *authController) ExchangeTempToken(ctx context.Context, req *v1.Exchange
 }
 
 func (c *authController) RefreshToken(ctx context.Context, req *v1.RefreshTokenRequest) (*v1.TokenResponse, error) {
-	ip := ctx.Value("IP").(string)
-	deviceFingerprint := ctx.Value("DeviceFingerprint").(string)
+	ip, deviceFingerprint, _ := authApi.RequestInfo(ctx)
 
 	// 调用认证服务刷新令牌（强制客户端认证）
 	tokenResp, err := service.GetAuthService().RefreshToken(ctx, req.RefreshToken, req.ClientID, req.ClientSecret, ip, deviceFingerprint)
@@ -226,9 +217,7 @@ func (c *authController) RevokeToken(ctx context.Context, req *v1.RevokeTokenReq
 }
 
 func (c *authController) Logout(ctx context.Context, req *v1.LogoutRequest) error {
-	ip := ctx.Value("IP").(string)
-	deviceFingerprint := ctx.Value("DeviceFingerprint").(string)
-	userAgent := ctx.Value("UserAgent").(string)
+	ip, deviceFingerprint, userAgent := authApi.RequestInfo(ctx)
 
 	// 从令牌中获取用户ID
 	claims, err := service.GetAuthService().ValidateToken(ctx, req.Token, ip, deviceFingerprint)
@@ -290,8 +279,7 @@ func (c *authController) GetThirdPartyAuthURL(ctx context.Context, req *v1.Third
 }
 
 func (c *authController) Token(ctx context.Context, req *v1.TokenRequest) (*v1.TokenResponse, error) {
-	ip := ctx.Value("IP").(string)
-	deviceFingerprint := ctx.Value("DeviceFingerprint").(string)
+	ip, deviceFingerprint, _ := authApi.RequestInfo(ctx)
 
 	// 处理不同的授权类型
 	switch req.GrantType {
@@ -416,8 +404,7 @@ func isRedirectURIRegistered(registeredURIsJSON, redirectURI string) bool {
 }
 
 func (c *authController) Introspect(ctx context.Context, req *v1.IntrospectRequest) (*v1.IntrospectResponse, error) {
-	ip := ctx.Value("IP").(string)
-	deviceFingerprint := ctx.Value("DeviceFingerprint").(string)
+	ip, deviceFingerprint, _ := authApi.RequestInfo(ctx)
 
 	// 验证客户端凭证（如果提供了）
 	if req.ClientID != "" && req.ClientSecret != "" {

@@ -102,7 +102,9 @@ func (s *sessionServiceImpl) GetSession(sessionID string) (*service.Session, err
 	}
 
 	if time.Now().After(time.Unix(session.ExpiresAt, 0)) {
-		s.DeleteSession(sessionID)
+		// 顺手清理过期会话。删除失败不影响「会话已过期」这个结论本身
+		// （下次读取仍会因过期被拒），因此显式忽略。
+		_ = s.DeleteSession(sessionID)
 		return nil, errors.New("会话已过期")
 	}
 

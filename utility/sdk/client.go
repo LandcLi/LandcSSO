@@ -288,7 +288,6 @@ func (c *Client) BiometricLogin(req *BiometricLoginRequest) (*TokenResponse, err
 
 // GetWechatAuthURL 获取微信授权链接
 func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, error) {
-
 	// 构建请求URL
 	params := url.Values{}
 	params.Add("redirect_uri", redirectURI)
@@ -330,7 +329,6 @@ func (c *Client) GetWechatAuthURL(redirectURI string, state string) (string, err
 
 // GetGitHubAuthURL 获取GitHub授权链接
 func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string, codeChallenge string, codeChallengeMethod string) (string, error) {
-
 	// 构建请求URL
 	params := url.Values{}
 	params.Add("redirect_uri", redirectURI)
@@ -375,7 +373,6 @@ func (c *Client) GetGitHubAuthURL(redirectURI string, state string, scope string
 
 // GetAlipayAuthURL 获取支付宝授权链接
 func (c *Client) GetAlipayAuthURL(redirectURI string, state string) (string, error) {
-
 	// 构建请求URL
 	params := url.Values{}
 	params.Add("redirect_uri", redirectURI)

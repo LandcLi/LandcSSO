@@ -126,32 +126,37 @@ func (r *tokenDaoImpl) Update(token *model.Token) (*model.Token, error) {
 		return nil, err
 	}
 
-	rc := r.getRedis()
-	if rc != nil {
-		if token.AccessToken != "" {
-			cacheKey := fmt.Sprintf("token:access:%s", token.AccessToken)
-			data, err := json.Marshal(token)
-			if err == nil {
-				expiration := time.Until(token.ExpiresAt) / 2
-				if expiration > 0 {
-					rc.Set(context.Background(), cacheKey, data, expiration)
-				}
-			}
-		}
-
-		if token.RefreshToken != "" {
-			cacheKey := fmt.Sprintf("token:refresh:%s", token.RefreshToken)
-			data, err := json.Marshal(token)
-			if err == nil {
-				expiration := time.Until(token.RefreshExpiresAt) / 2
-				if expiration > 0 {
-					rc.Set(context.Background(), cacheKey, data, expiration)
-				}
-			}
-		}
-	}
+	r.cacheCreatedToken(token)
 
 	return token, nil
+}
+
+// cacheCreatedToken 在 Redis 可用时把 access / refresh 令牌写入缓存。
+//
+// 缓存只是加速层，数据库才是真相源：Redis 未配置、序列化失败、
+// 令牌已过期都静默跳过，不影响 Create 的结果。
+func (r *tokenDaoImpl) cacheCreatedToken(token *model.Token) {
+	rc := r.getRedis()
+	if rc == nil {
+		return
+	}
+	// 只缓存到过期时间的一半，避免缓存比令牌本身活得更久
+	setTokenCache(rc, "token:access:", token.AccessToken, token, token.ExpiresAt)
+	setTokenCache(rc, "token:refresh:", token.RefreshToken, token, token.RefreshExpiresAt)
+}
+
+// setTokenCache 写入单个令牌缓存键，任何失败都静默跳过。
+func setTokenCache(rc redis.UniversalClient, prefix, raw string, value any, expireAt time.Time) {
+	if raw == "" {
+		return
+	}
+	data, err := json.Marshal(value)
+	if err != nil {
+		return
+	}
+	if ttl := time.Until(expireAt) / 2; ttl > 0 {
+		rc.Set(context.Background(), prefix+raw, data, ttl)
+	}
 }
 
 func (r *tokenDaoImpl) Delete(id uint) error {

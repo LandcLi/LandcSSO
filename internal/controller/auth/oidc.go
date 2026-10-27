@@ -16,6 +16,9 @@ import (
 	"github.com/LandcLi/LandcSSO/utility/config"
 )
 
+// jsonKeyError OIDC 错误响应体的键名，多处复用故提取为常量。
+const jsonKeyError = "error"
+
 // 本文件实现 OIDC 规范要求的三个只读端点。
 //
 // 为什么用 gin 原生路由而不是 meta.Meta 声明：
@@ -36,7 +39,7 @@ var DefaultScopes = []string{"openid", "profile", "email", "phone"}
 func DiscoveryHandler(c *gin.Context) {
 	cfg := config.GetConfig()
 	if cfg == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "配置未初始化"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: "配置未初始化"})
 		return
 	}
 
@@ -100,13 +103,13 @@ func JWKSHandler(c *gin.Context) {
 
 	svc := service.GetAuthService()
 	if svc == nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "认证服务未初始化"})
+		c.JSON(http.StatusServiceUnavailable, gin.H{jsonKeyError: "认证服务未初始化"})
 		return
 	}
 
 	resp, err := svc.GetJWKS(c.Request.Context())
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		c.JSON(http.StatusInternalServerError, gin.H{jsonKeyError: err.Error()})
 		return
 	}
 
@@ -128,12 +131,12 @@ func isAbsoluteURL(s string) bool {
 func UserInfoHandler(c *gin.Context) {
 	raw, ok := c.Get("UserID")
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
+		c.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: "未认证"})
 		return
 	}
 	userID, ok := raw.(uint)
 	if !ok || userID == 0 {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未认证"})
+		c.JSON(http.StatusUnauthorized, gin.H{jsonKeyError: "未认证"})
 		return
 	}
 
@@ -141,7 +144,7 @@ func UserInfoHandler(c *gin.Context) {
 	profile, err := userapi.GetUserController().GetUserInfo(ctx, &userv1api.GetUserInfoRequest{UserID: userID})
 	if err != nil {
 		// 令牌有效但取不到档案：属于服务间问题，不能伪装成 401 让客户端去重新登录。
-		c.JSON(http.StatusBadGateway, gin.H{"error": "无法获取用户信息"})
+		c.JSON(http.StatusBadGateway, gin.H{jsonKeyError: "无法获取用户信息"})
 		return
 	}
 
