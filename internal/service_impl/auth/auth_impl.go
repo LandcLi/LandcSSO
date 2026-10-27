@@ -23,8 +23,8 @@ import (
 	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/LandcLi/LandcSSO/utility/security"
 	frameauth "github.com/LandcLi/landc-go/frame/pkg/auth"
-	"gorm.io/gorm"
 	"github.com/LandcLi/landc-go/log/facade"
+	"gorm.io/gorm"
 )
 
 func init() {
