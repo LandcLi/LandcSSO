@@ -23,6 +23,7 @@ import (
 	"github.com/LandcLi/LandcSSO/utility/config"
 	"github.com/LandcLi/LandcSSO/utility/security"
 	frameauth "github.com/LandcLi/landc-go/frame/pkg/auth"
+	"gorm.io/gorm"
 	"github.com/LandcLi/landc-go/log/facade"
 )
 
@@ -128,7 +129,7 @@ func (s *authServiceImpl) Login(ctx context.Context, userID uint, username strin
 // generateTokens 生成令牌
 func (s *authServiceImpl) generateTokens(ctx context.Context, userID uint, username string, clientID string, ip string, deviceFingerprint string) (*model.TokenResponse, error) {
 	if s.cfg().JWT.MaxConcurrentSessions > 0 {
-		if err := s.checkConcurrentSessions(userID); err != nil {
+		if err := s.checkConcurrentSessions(ctx, userID); err != nil {
 			return nil, err
 		}
 	}
@@ -175,7 +176,7 @@ func (s *authServiceImpl) generateTokens(ctx context.Context, userID uint, usern
 	}, nil
 }
 
-func (s *authServiceImpl) checkConcurrentSessions(userID uint) error {
+func (s *authServiceImpl) checkConcurrentSessions(ctx context.Context, userID uint) error {
 	tokens, err := dao.GetTokenDao().FindByUserID(userID)
 	if err != nil {
 		return nil
@@ -201,6 +202,9 @@ func (s *authServiceImpl) checkConcurrentSessions(userID uint) error {
 			_, err := dao.GetTokenDao().Update(oldestToken)
 			if err != nil {
 				facade.Errorf("撤销旧令牌失败: %v", err)
+			} else {
+				// 同步写撤销缓存，让被踢下线的令牌尽快被拒绝
+				s.markRevokedInCache(ctx, oldestToken.AccessToken, revokeCacheTTL(oldestToken.ExpiresAt))
 			}
 		}
 	}
@@ -218,6 +222,26 @@ func (s *authServiceImpl) ValidateToken(ctx context.Context, tokenString string,
 	}
 	if claims.DeviceFingerprint != "" && deviceFingerprint != "" && claims.DeviceFingerprint != deviceFingerprint {
 		return nil, errors.New("设备指纹不匹配")
+	}
+
+	// 撤销检查：JWT 是无状态的，签名有效不代表仍然可用。
+	//
+	// 此前这里漏了这一步，导致 revoke-token / logout / 并发会话踢下线全部
+	// 「假失效」——数据库里 marked revoked，令牌却照常通行到过期。
+	//
+	// 临时令牌（temp）不写入 tokens 表（只存 Redis 或在 claims 里），
+	// 因此不参与数据库校验。
+	if claims.TokenType == "access" || claims.TokenType == "" {
+		revoked, err := s.isAccessTokenRevoked(ctx, tokenString)
+		if err != nil {
+			// 数据库不可用时按失败关闭处理：鉴权是安全边界，
+			// 宁可拒绝也不要放行一个可能已撤销的令牌。
+			facade.Errorf("校验令牌撤销状态失败，按拒绝处理: %v", err)
+			return nil, errors.New("令牌状态校验失败")
+		}
+		if revoked {
+			return nil, errors.New("令牌已失效")
+		}
 	}
 
 	return &model.Claims{
@@ -321,21 +345,23 @@ func (s *authServiceImpl) GenerateTokens(ctx context.Context, userID uint, clien
 }
 
 func (s *authServiceImpl) RevokeToken(ctx context.Context, tokenString string) error {
-	token, err := dao.GetTokenDao().FindByAccessToken(tokenString)
-	if err != nil {
-		return errors.New("令牌不存在")
-	}
-
-	token.Revoked = true
-	_, err = dao.GetTokenDao().Update(token)
-	if err != nil {
+	if err := s.revokeByTokenString(ctx, tokenString); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// RFC 7009 §2.2：撤销一个不存在或已失效的令牌应视为成功。
+			// 若按「令牌不存在」报错，调用方就能借响应差异探测某个令牌是否有效，
+			// 等于给攻击者提供了一个令牌有效性探针。
+			//
+			// 常见触发场景：客户端拿着新设备登录下发的临时令牌来撤销 ——
+			// 临时令牌本就不落 tokens 表，无需撤销。
+			return nil
+		}
 		return errors.New("令牌撤销失败")
 	}
 	return nil
 }
 
 func (s *authServiceImpl) Logout(ctx context.Context, userID uint, ip string, deviceFingerprint string, userAgent string) error {
-	_ = s.revokeUserTokens(userID)
+	_ = s.revokeUserTokens(ctx, userID)
 
 	_ = service.GetSessionService().DeleteUserSessions(userID)
 
@@ -344,7 +370,18 @@ func (s *authServiceImpl) Logout(ctx context.Context, userID uint, ip string, de
 	return nil
 }
 
-func (s *authServiceImpl) revokeUserTokens(userID uint) error {
+// revokeUserTokens 撤销某用户的全部令牌（登出、强制下线）。
+//
+// 先取出令牌原文写撤销缓存，再批量置 revoked。缓存只是加速后续的拒绝路径，
+// 写失败不影响正确性 —— ValidateToken 最终以数据库为准。
+func (s *authServiceImpl) revokeUserTokens(ctx context.Context, userID uint) error {
+	if tokens, err := dao.GetTokenDao().FindByUserID(userID); err == nil {
+		for _, t := range tokens {
+			if !t.Revoked {
+				s.markRevokedInCache(ctx, t.AccessToken, revokeCacheTTL(t.ExpiresAt))
+			}
+		}
+	}
 	return dao.GetTokenDao().RevokeByUserID(userID)
 }
 

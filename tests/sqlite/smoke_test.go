@@ -54,6 +54,9 @@ jwt:
   issuer: "https://sso.test.local"
   accessTokenExpiry: 1800
   refreshTokenExpiry: 86400
+  # 并发会话上限：超过时踢掉最旧的令牌。设为 0 表示不限制，
+  # 测试需要显式给一个值才能验证「踢下线」真的生效。
+  maxConcurrentSessions: 5
 log:
   provider: "console"
   level: "error"

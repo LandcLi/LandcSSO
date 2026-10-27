@@ -8,6 +8,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/LandcLi/LandcSSO/service"
 )
 
 // decodeFlat 断言响应是「扁平 JSON」，不做 {code,message,data} 包装。
@@ -148,6 +150,7 @@ func TestOIDCUserInfoEndpoint(t *testing.T) {
 	const (
 		username = "oidc_userinfo_user"
 		password = "Passw0rd!"
+		deviceFP = "sso-sqlite-smoke"
 	)
 
 	reg, err := userService().Register(ctx, registerRequest(username, password))
@@ -166,9 +169,22 @@ func TestOIDCUserInfoEndpoint(t *testing.T) {
 	}
 
 	// 2. 有效令牌 → 200 + 用户信息
+	//
+	// 注意令牌必须由 SSO 自己签发：/auth/userinfo 走 AuthRequired →
+	// ValidateToken，后者会校验 tokens 表里的撤销状态。LUM 注册返回的令牌
+	// 虽然因为共享 secret 能通过签名验证，但它不在 SSO 的 tokens 表里，
+	// 按「未知令牌一律拒绝」的策略会被挡下 —— 这是刻意为之：
+	// OIDC 端点只认本系统签发的令牌。
+	tokenResp, err := service.GetAuthService().Login(
+		ctx, reg.UserID, username, false, false, "127.0.0.1", deviceFP, "oidc-test")
+	if err != nil {
+		t.Fatalf("sso login: %v", err)
+	}
+	ssoToken := tokenResp.AccessToken
+
 	req, _ := http.NewRequest(http.MethodGet, srv.URL+"/auth/userinfo", nil)
-	req.Header.Set("Authorization", "Bearer "+reg.Token)
-	req.Header.Set("X-Device-Fingerprint", "sso-sqlite-smoke") // 令牌绑定设备指纹
+	req.Header.Set("Authorization", "Bearer "+ssoToken)
+	req.Header.Set("X-Device-Fingerprint", deviceFP) // 令牌绑定设备指纹
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

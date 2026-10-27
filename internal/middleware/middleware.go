@@ -96,12 +96,20 @@ func RequestLogger() gin.HandlerFunc {
 		clientIP := c.ClientIP()
 
 		// 日志格式
-		facade.Infof("| %3d | %13v | %15s | %s | %s |",
+		//
+		// trace_id 由 createHandler（或 trace 中间件）写入 gin.Context，
+		// c.Next() 之后就能读到。带上它，同一请求的日志才能和下游服务串起来。
+		traceID := c.GetString("trace_id")
+		if traceID == "" {
+			traceID = c.GetHeader("X-Trace-ID")
+		}
+		facade.Infof("| %3d | %13v | %15s | %s | %s | trace=%s",
 			statusCode,
 			latency,
 			clientIP,
 			method,
 			path,
+			traceID,
 		)
 	}
 }
