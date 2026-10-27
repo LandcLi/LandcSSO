@@ -126,7 +126,11 @@ func RegisterToRouter(s *web.Server, opts ...Option) error {
 	engine := s.Engine()
 	engine.Use(middleware.Cors())
 	engine.Use(middleware.CtxEnricherMiddleware())
-	engine.Use(middleware.RequestLogger())
+
+	// 访问日志由框架 web.NewServer 统一挂载（结构化字段 + trace_id）。
+	// 本系统此前自带一个 RequestLogger，会与 gin 自带的 [GIN] 日志并存 ——
+	// 两条日志、一条还不带 trace，排查时反而干扰。
+	// 若需自定义日志格式，改框架的 log/adapter/gin 而不是在业务侧再挂一层。
 
 	if o.rateLimit {
 		engine.Use(loginRateLimitMiddleware(o.loginRateLimiter))
